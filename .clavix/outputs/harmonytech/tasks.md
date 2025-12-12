@@ -112,17 +112,17 @@
 
 ## Phase 3: State Management (Zustand)
 
-- [ ] **Create UI state store**
+- [x] **Create UI state store**
   Task ID: phase-3-state-01
   > **Implementation**: Create `src/stores/ui.store.ts`.
   > **Details**: State: `activeView` (inbox, tasks, thoughts, settings), `isCaptureOpen`, `isProcessing`, `selectedTaskId`, `filters` (context, energy, project, showCompleted). Actions for each.
 
-- [ ] **Create settings store**
+- [x] **Create settings store**
   Task ID: phase-3-state-02
   > **Implementation**: Create `src/stores/settings.store.ts`.
   > **Details**: Syncs with RxDB settings collection. State: `apiKey`, `preferredModel`, `theme`, `isApiKeyValid`. Actions: `setApiKey`, `validateApiKey`, `updateSettings`.
 
-- [ ] **Create capture store**
+- [x] **Create capture store**
   Task ID: phase-3-state-03
   > **Implementation**: Create `src/stores/capture.store.ts`.
   > **Details**: State: `inputText`, `isRecording`, `recordingDuration`, `audioBlob`, `processingState` (idle, recording, transcribing, extracting, suggesting, done), `extractedItems`, `currentSuggestions`. Actions for capture flow.
@@ -131,32 +131,32 @@
 
 ## Phase 4: Core UI Components
 
-- [ ] **Create Header component**
+- [x] **Create Header component**
   Task ID: phase-4-ui-01
   > **Implementation**: Create `src/components/layout/Header.tsx`.
   > **Details**: Shows app title, current view name, settings icon. On mobile: hamburger menu. On desktop: minimal.
 
-- [ ] **Create BottomNav component (mobile)**
+- [x] **Create BottomNav component (mobile)**
   Task ID: phase-4-ui-02
   > **Implementation**: Create `src/components/layout/BottomNav.tsx`.
   > **Details**: Fixed bottom bar with icons: Inbox, Tasks, Thoughts, Settings. Center FAB for capture. Uses `ui.store` for active view.
 
-- [ ] **Create Sidebar component (desktop)**
+- [x] **Create Sidebar component (desktop)**
   Task ID: phase-4-ui-03
   > **Implementation**: Create `src/components/layout/Sidebar.tsx`.
   > **Details**: Left sidebar with navigation, project list, filters. Collapsible. Prominent capture button at top.
 
-- [ ] **Create CaptureButton (FAB)**
+- [x] **Create CaptureButton (FAB)**
   Task ID: phase-4-ui-04
   > **Implementation**: Create `src/components/capture/CaptureButton.tsx`.
   > **Details**: Floating action button. Tap = open text capture. Long press = start voice recording. Animated microphone icon during recording.
 
-- [ ] **Create EmptyState component**
+- [x] **Create EmptyState component**
   Task ID: phase-4-ui-05
   > **Implementation**: Create `src/components/ui/EmptyState.tsx`.
   > **Details**: Reusable empty state with icon, title, description, optional action button. Used when no tasks/thoughts exist.
 
-- [ ] **Create LoadingSpinner component**
+- [x] **Create LoadingSpinner component**
   Task ID: phase-4-ui-06
   > **Implementation**: Create `src/components/ui/LoadingSpinner.tsx`.
   > **Details**: Simple spinner for loading states. Variants: inline, fullscreen, button.
@@ -165,37 +165,37 @@
 
 ## Phase 5: Capture Flow
 
-- [ ] **Create CaptureModal component**
+- [x] **Create CaptureModal component**
   Task ID: phase-5-capture-01
   > **Implementation**: Create `src/components/capture/CaptureModal.tsx`.
   > **Details**: Full-screen modal on mobile, centered modal on desktop. Contains text input area, voice recording controls, submit button. Shows processing states.
 
-- [ ] **Create TextCapture component**
+- [x] **Create TextCapture component**
   Task ID: phase-5-capture-02
   > **Implementation**: Create `src/components/capture/TextCapture.tsx`.
   > **Details**: Auto-expanding textarea. Placeholder: "What's on your mind?". Submit on Cmd/Ctrl+Enter. No required fields.
 
-- [ ] **Create VoiceCapture component**
+- [x] **Create VoiceCapture component**
   Task ID: phase-5-capture-03
   > **Implementation**: Create `src/components/capture/VoiceCapture.tsx`.
   > **Details**: Uses MediaRecorder API. Shows recording indicator, duration timer, waveform visualization (optional). Stop button. Stores blob in state.
 
-- [ ] **Create useVoiceRecording hook**
+- [x] **Create useVoiceRecording hook**
   Task ID: phase-5-capture-04
   > **Implementation**: Create `src/hooks/useVoiceRecording.ts`.
   > **Details**: Handles MediaRecorder lifecycle. Returns: `startRecording`, `stopRecording`, `isRecording`, `duration`, `audioBlob`, `error`. Request microphone permission.
 
-- [ ] **Create ProcessingIndicator component**
+- [x] **Create ProcessingIndicator component**
   Task ID: phase-5-capture-05
   > **Implementation**: Create `src/components/capture/ProcessingIndicator.tsx`.
   > **Details**: Shows current processing step: "Recording...", "Transcribing...", "Extracting tasks...", "Suggesting properties...". Animated progress.
 
-- [ ] **Create SuggestionReview component**
+- [x] **Create SuggestionReview component**
   Task ID: phase-5-capture-06
   > **Implementation**: Create `src/components/capture/SuggestionReview.tsx`.
   > **Details**: After AI processing, shows extracted items with AI suggestions. User can accept/modify each property. "Save" and "Edit more" buttons.
 
-- [ ] **Create PropertySuggestion component**
+- [x] **Create PropertySuggestion component**
   Task ID: phase-5-capture-07
   > **Implementation**: Create `src/components/capture/PropertySuggestion.tsx`.
   > **Details**: Single property row: label, AI-suggested value (highlighted), alternative options as chips, custom input option. Tap chip to select.
