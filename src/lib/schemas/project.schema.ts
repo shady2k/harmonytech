@@ -16,6 +16,7 @@ export const projectSchema: RxJsonSchema<ProjectDocType> = {
     },
     name: {
       type: 'string',
+      maxLength: 200,
     },
     description: {
       type: 'string',
@@ -25,9 +26,11 @@ export const projectSchema: RxJsonSchema<ProjectDocType> = {
     },
     createdAt: {
       type: 'string',
+      maxLength: 30,
     },
     updatedAt: {
       type: 'string',
+      maxLength: 30,
     },
   },
   required: ['id', 'name', 'isActive', 'createdAt', 'updatedAt'],

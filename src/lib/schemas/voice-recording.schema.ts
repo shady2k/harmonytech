@@ -22,6 +22,7 @@ export const voiceRecordingSchema: RxJsonSchema<VoiceRecordingDocType> = {
     },
     processedAt: {
       type: 'string',
+      maxLength: 30,
     },
     extractedTaskIds: {
       type: 'array',
@@ -37,6 +38,7 @@ export const voiceRecordingSchema: RxJsonSchema<VoiceRecordingDocType> = {
     },
     createdAt: {
       type: 'string',
+      maxLength: 30,
     },
   },
   required: ['id', 'audioData', 'extractedTaskIds', 'extractedThoughtIds', 'createdAt'],

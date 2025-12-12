@@ -1,17 +1,92 @@
-import { useState, useCallback, type ReactElement, type ChangeEvent } from 'react'
+import { useState, useCallback, useEffect, type ReactElement, type ChangeEvent } from 'react'
 import { useSettingsStore } from '@/stores'
 import { useDatabase } from '@/hooks'
 import { Button, Input } from '@/components/ui'
 import { NavIcon } from '@/components/layout/NavIcon'
 
+interface OpenRouterModel {
+  id: string
+  name: string
+  context_length: number
+  pricing: { prompt: string; completion: string }
+  architecture?: {
+    modality?: string
+    input_modalities?: string[]
+  }
+}
+
 export function ApiKeySetup(): ReactElement {
   const { db } = useDatabase()
-  const { apiKey, isApiKeyValid, isValidating, setApiKey, validateApiKey, syncToDatabase } =
-    useSettingsStore()
+  const {
+    apiKey,
+    textModel,
+    voiceModel,
+    isApiKeyValid,
+    isValidating,
+    setApiKey,
+    setTextModel,
+    setVoiceModel,
+    validateApiKey,
+    syncToDatabase,
+  } = useSettingsStore()
 
   const [inputValue, setInputValue] = useState(apiKey ?? '')
   const [showKey, setShowKey] = useState(false)
   const [isSaving, setIsSaving] = useState(false)
+  const [models, setModels] = useState<OpenRouterModel[]>([])
+  const [isLoadingModels, setIsLoadingModels] = useState(false)
+
+  // Sync input value and validate when apiKey loads from database
+  useEffect(() => {
+    if (apiKey !== null && apiKey !== '') {
+      if (inputValue === '') {
+        setInputValue(apiKey)
+      }
+      // Validate the loaded API key if not already validated
+      if (isApiKeyValid === null && !isValidating) {
+        void validateApiKey()
+      }
+    }
+  }, [apiKey, inputValue, isApiKeyValid, isValidating, validateApiKey])
+
+  // Fetch models when API key is valid
+  useEffect(() => {
+    if (!isApiKeyValid || !apiKey) {
+      setModels([])
+      return
+    }
+
+    const fetchModels = async (): Promise<void> => {
+      setIsLoadingModels(true)
+      try {
+        const response = await fetch('https://openrouter.ai/api/v1/models', {
+          headers: { Authorization: `Bearer ${apiKey}` },
+        })
+        if (response.ok) {
+          const data = (await response.json()) as { data: OpenRouterModel[] }
+          setModels(data.data)
+        }
+      } catch {
+        // Silently fail
+      } finally {
+        setIsLoadingModels(false)
+      }
+    }
+
+    void fetchModels()
+  }, [apiKey, isApiKeyValid])
+
+  // Filter models for text and voice (multimodal with audio support)
+  const textModels = models.filter(
+    (m) => !m.id.includes('whisper') && !m.id.includes('tts')
+  )
+
+  // Voice models are multimodal models that support audio input
+  const voiceModels = models.filter((m) => {
+    const modalities = m.architecture?.input_modalities ?? []
+    const modality = m.architecture?.modality ?? ''
+    return modalities.includes('audio') || modality.includes('audio')
+  })
 
   const handleInputChange = useCallback((e: ChangeEvent<HTMLInputElement>): void => {
     setInputValue(e.target.value)
@@ -123,6 +198,66 @@ export function ApiKeySetup(): ReactElement {
         </a>
         . Your key is stored locally and never sent to our servers.
       </p>
+
+      {/* Model Selection */}
+      {isApiKeyValid && (
+        <div className="grid gap-4 sm:grid-cols-2">
+          <div>
+            <label
+              htmlFor="text-model-select"
+              className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Text Model
+            </label>
+            <select
+              id="text-model-select"
+              value={textModel ?? ''}
+              onChange={(e): void => {
+                setTextModel(e.target.value || null)
+              }}
+              disabled={isLoadingModels}
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            >
+              <option value="">{isLoadingModels ? 'Loading...' : 'Select a model'}</option>
+              {textModels.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div>
+            <label
+              htmlFor="voice-model-select"
+              className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+            >
+              Voice Model (Audio Processing)
+            </label>
+            <select
+              id="voice-model-select"
+              value={voiceModel ?? ''}
+              onChange={(e): void => {
+                setVoiceModel(e.target.value || null)
+              }}
+              disabled={isLoadingModels}
+              className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 disabled:opacity-50 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+            >
+              <option value="">{isLoadingModels ? 'Loading...' : 'Select a model'}</option>
+              {voiceModels.map((model) => (
+                <option key={model.id} value={model.id}>
+                  {model.name}
+                </option>
+              ))}
+            </select>
+            {voiceModels.length === 0 && !isLoadingModels && (
+              <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+                No speech-to-text models available
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       <div className="flex gap-2">
         <Button

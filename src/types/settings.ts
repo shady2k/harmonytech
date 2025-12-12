@@ -5,7 +5,8 @@ export type Theme = 'light' | 'dark' | 'system'
 export interface Settings {
   id: string // Always "user-settings"
   openRouterApiKey?: string
-  preferredModel?: string
+  textModel?: string
+  voiceModel?: string
   theme: Theme
   defaultContext: TaskContext
   defaultEnergy: TaskEnergy

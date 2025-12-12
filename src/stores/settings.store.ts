@@ -7,7 +7,8 @@ import type { RxDocument } from 'rxdb'
 interface SettingsState {
   // Settings values
   apiKey: string | null
-  preferredModel: string | null
+  textModel: string | null
+  voiceModel: string | null
   theme: Theme
   defaultContext: TaskContext
   defaultEnergy: TaskEnergy
@@ -27,7 +28,8 @@ interface SettingsActions {
   validateApiKey: () => Promise<boolean>
 
   // Settings updates
-  setPreferredModel: (model: string | null) => void
+  setTextModel: (model: string | null) => void
+  setVoiceModel: (model: string | null) => void
   setTheme: (theme: Theme) => void
   setDefaultContext: (context: TaskContext) => void
   setDefaultEnergy: (energy: TaskEnergy) => void
@@ -43,7 +45,8 @@ interface SettingsActions {
 
 const initialState: SettingsState = {
   apiKey: null,
-  preferredModel: null,
+  textModel: null,
+  voiceModel: null,
   theme: 'system',
   defaultContext: 'anywhere',
   defaultEnergy: 'medium',
@@ -95,8 +98,11 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   },
 
   // Settings updates
-  setPreferredModel: (preferredModel): void => {
-    set({ preferredModel })
+  setTextModel: (textModel): void => {
+    set({ textModel })
+  },
+  setVoiceModel: (voiceModel): void => {
+    set({ voiceModel })
   },
   setTheme: (theme): void => {
     set({ theme })
@@ -115,7 +121,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
       if (settingsDoc) {
         set({
           apiKey: settingsDoc.openRouterApiKey ?? null,
-          preferredModel: settingsDoc.preferredModel ?? null,
+          textModel: settingsDoc.textModel ?? null,
+          voiceModel: settingsDoc.voiceModel ?? null,
           theme: settingsDoc.theme,
           defaultContext: settingsDoc.defaultContext,
           defaultEnergy: settingsDoc.defaultEnergy,
@@ -128,7 +135,7 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   },
 
   syncToDatabase: async (db): Promise<void> => {
-    const { apiKey, preferredModel, theme, defaultContext, defaultEnergy } = get()
+    const { apiKey, textModel, voiceModel, theme, defaultContext, defaultEnergy } = get()
 
     set({ isSyncing: true })
 
@@ -137,7 +144,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
       if (settingsDoc) {
         await settingsDoc.patch({
           openRouterApiKey: apiKey ?? undefined,
-          preferredModel: preferredModel ?? undefined,
+          textModel: textModel ?? undefined,
+          voiceModel: voiceModel ?? undefined,
           theme,
           defaultContext,
           defaultEnergy,
@@ -156,7 +164,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
         if (settingsDoc) {
           set({
             apiKey: settingsDoc.openRouterApiKey ?? null,
-            preferredModel: settingsDoc.preferredModel ?? null,
+            textModel: settingsDoc.textModel ?? null,
+            voiceModel: settingsDoc.voiceModel ?? null,
             theme: settingsDoc.theme,
             defaultContext: settingsDoc.defaultContext,
             defaultEnergy: settingsDoc.defaultEnergy,

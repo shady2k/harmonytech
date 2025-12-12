@@ -141,12 +141,16 @@ export function useVoiceRecording(): UseVoiceRecordingReturn {
 }
 
 function getSupportedMimeType(): string {
+  // Prefer formats supported by OpenRouter: wav, mp3, ogg, aac, flac, m4a
   const mimeTypes = [
-    'audio/webm;codecs=opus',
-    'audio/webm',
-    'audio/mp4',
+    'audio/wav',
+    'audio/mp4', // m4a
+    'audio/aac',
     'audio/ogg;codecs=opus',
     'audio/ogg',
+    'audio/flac',
+    'audio/webm;codecs=opus', // Fallback - may not work with all models
+    'audio/webm',
   ]
 
   for (const mimeType of mimeTypes) {
@@ -155,5 +159,5 @@ function getSupportedMimeType(): string {
     }
   }
 
-  return 'audio/webm' // Default fallback
+  return 'audio/ogg' // Default fallback
 }

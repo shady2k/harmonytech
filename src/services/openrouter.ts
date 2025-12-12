@@ -6,11 +6,11 @@ export interface ChatMessage {
 }
 
 export interface ContentPart {
-  type: 'text' | 'audio'
+  type: 'text' | 'input_audio'
   text?: string
-  audio?: {
+  input_audio?: {
     data: string
-    format: 'wav' | 'mp3' | 'ogg' | 'webm'
+    format: string
   }
 }
 
@@ -75,9 +75,9 @@ export class OpenRouterClient {
 
   async chatWithAudio(
     audioBase64: string,
-    audioFormat: 'wav' | 'mp3' | 'ogg' | 'webm',
+    audioFormat: string,
     prompt: string,
-    model = 'google/gemini-2.0-flash-001'
+    model: string
   ): Promise<ChatResponse> {
     const messages: ChatMessage[] = [
       {
@@ -88,8 +88,8 @@ export class OpenRouterClient {
             text: prompt,
           },
           {
-            type: 'audio',
-            audio: {
+            type: 'input_audio',
+            input_audio: {
               data: audioBase64,
               format: audioFormat,
             },

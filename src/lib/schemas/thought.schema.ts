@@ -25,17 +25,21 @@ export const thoughtSchema: RxJsonSchema<ThoughtDocType> = {
     },
     linkedProject: {
       type: 'string',
+      maxLength: 200,
     },
     createdAt: {
       type: 'string',
+      maxLength: 30,
     },
     updatedAt: {
       type: 'string',
+      maxLength: 30,
     },
     sourceRecordingId: {
       type: 'string',
+      maxLength: 100,
     },
   },
   required: ['id', 'content', 'tags', 'createdAt', 'updatedAt'],
-  indexes: ['createdAt', 'linkedProject'],
+  indexes: ['createdAt'],
 }

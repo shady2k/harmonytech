@@ -89,7 +89,7 @@ function toStringArray(value: unknown): string[] {
 export async function extractFromText(
   text: string,
   apiKey: string,
-  model = 'anthropic/claude-3.5-sonnet'
+  model: string
 ): Promise<ExtractionResult> {
   if (text.trim() === '') {
     return {

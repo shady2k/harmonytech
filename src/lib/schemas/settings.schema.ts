@@ -17,7 +17,10 @@ export const settingsSchema: RxJsonSchema<SettingsDocType> = {
     openRouterApiKey: {
       type: 'string',
     },
-    preferredModel: {
+    textModel: {
+      type: 'string',
+    },
+    voiceModel: {
       type: 'string',
     },
     theme: {

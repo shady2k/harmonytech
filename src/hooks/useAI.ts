@@ -38,7 +38,7 @@ export function useAI(): UseAIReturn {
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { apiKey, isApiKeyValid, validateApiKey: storeValidateApiKey } = useSettingsStore()
+  const { apiKey, textModel, voiceModel, isApiKeyValid, validateApiKey: storeValidateApiKey } = useSettingsStore()
 
   const clearError = useCallback((): void => {
     setError(null)
@@ -54,11 +54,15 @@ export function useAI(): UseAIReturn {
         throw new Error('API key not configured')
       }
 
+      if (textModel === null || textModel === '') {
+        throw new Error('Text model not configured. Please select a text model in Settings.')
+      }
+
       setIsProcessing(true)
       setError(null)
 
       try {
-        const result = await extractFromText(text, apiKey)
+        const result = await extractFromText(text, apiKey, textModel)
         return result
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to extract tasks'
@@ -68,7 +72,7 @@ export function useAI(): UseAIReturn {
         setIsProcessing(false)
       }
     },
-    [apiKey]
+    [apiKey, textModel]
   )
 
   const processVoice = useCallback(
@@ -77,11 +81,15 @@ export function useAI(): UseAIReturn {
         throw new Error('API key not configured')
       }
 
+      if (voiceModel === null || voiceModel === '') {
+        throw new Error('Voice model not configured. Please select a voice model in Settings.')
+      }
+
       setIsProcessing(true)
       setError(null)
 
       try {
-        const result = await processVoiceRecording(audioBlob, apiKey)
+        const result = await processVoiceRecording(audioBlob, apiKey, voiceModel)
         return result
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to process voice'
@@ -91,7 +99,7 @@ export function useAI(): UseAIReturn {
         setIsProcessing(false)
       }
     },
-    [apiKey]
+    [apiKey, voiceModel]
   )
 
   const suggestTaskProperties = useCallback(

@@ -1,4 +1,4 @@
-import type { RxDatabase } from 'rxdb'
+import type { RxDatabase, RxStorage } from 'rxdb'
 import { createRxDatabase, addRxPlugin } from 'rxdb'
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie'
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode'
@@ -6,6 +6,7 @@ import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder'
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema'
 import { RxDBUpdatePlugin } from 'rxdb/plugins/update'
 import { RxDBLeaderElectionPlugin } from 'rxdb/plugins/leader-election'
+import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv'
 
 import { taskSchema, type TaskCollection, type TaskDocument } from '@/lib/schemas/task.schema'
 import {
@@ -38,6 +39,15 @@ addRxPlugin(RxDBMigrationSchemaPlugin)
 addRxPlugin(RxDBUpdatePlugin)
 addRxPlugin(RxDBLeaderElectionPlugin)
 
+// Get storage with validation in dev mode
+function getStorage(): RxStorage<unknown, unknown> {
+  const dexieStorage = getRxStorageDexie()
+  if (import.meta.env.DEV) {
+    return wrappedValidateAjvStorage({ storage: dexieStorage })
+  }
+  return dexieStorage
+}
+
 export interface DatabaseCollections {
   tasks: TaskCollection
   thoughts: ThoughtCollection
@@ -58,7 +68,7 @@ export async function getDatabase(): Promise<HarmonyTechDatabase> {
 async function createDatabase(): Promise<HarmonyTechDatabase> {
   const db = await createRxDatabase<DatabaseCollections>({
     name: 'harmonytech',
-    storage: getRxStorageDexie(),
+    storage: getStorage(),
     ignoreDuplicate: true,
   })
 

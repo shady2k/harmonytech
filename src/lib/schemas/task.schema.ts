@@ -23,19 +23,23 @@ export const taskSchema: RxJsonSchema<TaskDocType> = {
     context: {
       type: 'string',
       enum: ['computer', 'phone', 'errands', 'home', 'anywhere'],
+      maxLength: 20,
     },
     energy: {
       type: 'string',
       enum: ['high', 'medium', 'low'],
+      maxLength: 10,
     },
     timeEstimate: {
       type: 'number',
     },
     deadline: {
       type: 'string',
+      maxLength: 30,
     },
     project: {
       type: 'string',
+      maxLength: 200,
     },
     isSomedayMaybe: {
       type: 'boolean',
@@ -45,12 +49,15 @@ export const taskSchema: RxJsonSchema<TaskDocType> = {
     },
     completedAt: {
       type: 'string',
+      maxLength: 30,
     },
     createdAt: {
       type: 'string',
+      maxLength: 30,
     },
     updatedAt: {
       type: 'string',
+      maxLength: 30,
     },
     aiSuggestions: {
       type: 'object',
@@ -134,5 +141,5 @@ export const taskSchema: RxJsonSchema<TaskDocType> = {
     'createdAt',
     'updatedAt',
   ],
-  indexes: ['createdAt', 'isCompleted', 'context', 'energy', 'project'],
+  indexes: ['createdAt', 'isCompleted', 'context', 'energy'],
 }
