@@ -243,42 +243,42 @@
 
 ## Phase 7: Task Management UI
 
-- [ ] **Create TaskList component**
+- [x] **Create TaskList component**
   Task ID: phase-7-tasks-01
   > **Implementation**: Create `src/components/tasks/TaskList.tsx`.
   > **Details**: Renders list of TaskCard components. Subscribes to RxDB tasks collection with filters from ui.store. Groups by project or shows flat list.
 
-- [ ] **Create TaskCard component**
+- [x] **Create TaskCard component**
   Task ID: phase-7-tasks-02
   > **Implementation**: Create `src/components/tasks/TaskCard.tsx`.
   > **Details**: Shows: checkbox, next action text, context badge, energy indicator, time estimate, deadline (if set). Tap to expand/edit. Swipe to complete (mobile).
 
-- [ ] **Create TaskDetail component**
+- [x] **Create TaskDetail component**
   Task ID: phase-7-tasks-03
   > **Implementation**: Create `src/components/tasks/TaskDetail.tsx`.
   > **Details**: Full task view/edit. Shows all properties with inline editing. "Re-suggest" button to get fresh AI suggestions. Delete button.
 
-- [ ] **Create TaskFilters component**
+- [x] **Create TaskFilters component**
   Task ID: phase-7-tasks-04
   > **Implementation**: Create `src/components/tasks/TaskFilters.tsx`.
   > **Details**: Filter chips for: context, energy, project, has deadline, someday/maybe. Updates ui.store.filters. Shows active filter count.
 
-- [ ] **Create ContextBadge component**
+- [x] **Create ContextBadge component**
   Task ID: phase-7-tasks-05
   > **Implementation**: Create `src/components/ui/ContextBadge.tsx`.
   > **Details**: Colored badge for context. Icons: 💻 computer, 📱 phone, 🛒 errands, 🏠 home, 🌍 anywhere. Consistent colors.
 
-- [ ] **Create EnergyIndicator component**
+- [x] **Create EnergyIndicator component**
   Task ID: phase-7-tasks-06
   > **Implementation**: Create `src/components/ui/EnergyIndicator.tsx`.
   > **Details**: Visual indicator for energy level. High = ⚡⚡⚡, Medium = ⚡⚡, Low = ⚡. Or use battery icon with fill level.
 
-- [ ] **Create ProjectSelector component**
+- [x] **Create ProjectSelector component**
   Task ID: phase-7-tasks-07
   > **Implementation**: Create `src/components/tasks/ProjectSelector.tsx`.
   > **Details**: Dropdown/modal to select project. Shows existing projects, "Create new" option. Used in task editing.
 
-- [ ] **Create useTasks hook**
+- [x] **Create useTasks hook**
   Task ID: phase-7-tasks-08
   > **Implementation**: Create `src/hooks/useTasks.ts`.
   > **Details**: Subscribe to RxDB tasks. Returns: `tasks`, `addTask`, `updateTask`, `completeTask`, `deleteTask`, `getTaskById`. Handles optimistic updates.
@@ -287,27 +287,27 @@
 
 ## Phase 8: Thoughts System
 
-- [ ] **Create ThoughtsList component**
+- [x] **Create ThoughtsList component**
   Task ID: phase-8-thoughts-01
   > **Implementation**: Create `src/components/thoughts/ThoughtsList.tsx`.
   > **Details**: List of ThoughtCard components. Search bar at top. Subscribes to RxDB thoughts collection.
 
-- [ ] **Create ThoughtCard component**
+- [x] **Create ThoughtCard component**
   Task ID: phase-8-thoughts-02
   > **Implementation**: Create `src/components/thoughts/ThoughtCard.tsx`.
   > **Details**: Shows thought content, tags, linked project, date. "Convert to task" action. Tap to expand.
 
-- [ ] **Create ThoughtDetail component**
+- [x] **Create ThoughtDetail component**
   Task ID: phase-8-thoughts-03
   > **Implementation**: Create `src/components/thoughts/ThoughtDetail.tsx`.
   > **Details**: Full thought view. Edit content, manage tags, link to project. "Convert to task" button triggers AI extraction flow.
 
-- [ ] **Create ConvertToTaskFlow component**
+- [x] **Create ConvertToTaskFlow component**
   Task ID: phase-8-thoughts-04
   > **Implementation**: Create `src/components/thoughts/ConvertToTaskFlow.tsx`.
   > **Details**: Modal that takes thought content, runs through AI task extraction, shows SuggestionReview. On save: creates task, optionally deletes thought.
 
-- [ ] **Create useThoughts hook**
+- [x] **Create useThoughts hook**
   Task ID: phase-8-thoughts-05
   > **Implementation**: Create `src/hooks/useThoughts.ts`.
   > **Details**: Subscribe to RxDB thoughts. Returns: `thoughts`, `addThought`, `updateThought`, `deleteThought`, `searchThoughts`, `convertToTask`.
