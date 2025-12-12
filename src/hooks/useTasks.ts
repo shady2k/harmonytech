@@ -3,6 +3,7 @@ import { useDatabaseContext } from '@/contexts/DatabaseContext'
 import { useUIStore, type TaskFilters } from '@/stores/ui.store'
 import type { Task, AISuggestions, Recurrence } from '@/types/task'
 import type { RxDocument } from 'rxdb'
+import { createNextInstance } from '@/services/recurrence'
 
 interface UseTasksReturn {
   tasks: Task[]
@@ -194,11 +195,22 @@ export function useTasks(): UseTasksReturn {
       }
 
       const now = new Date().toISOString()
+
+      // Mark current task as completed
       await doc.patch({
         isCompleted: true,
         completedAt: now,
         updatedAt: now,
       })
+
+      // If task is recurring, create next instance
+      const task = documentToTask(doc)
+      if (task.recurrence !== undefined) {
+        const nextTask = createNextInstance({ ...task, completedAt: now })
+        if (nextTask !== null) {
+          await db.tasks.insert(nextTask)
+        }
+      }
     },
     [db]
   )

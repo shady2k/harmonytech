@@ -1,10 +1,12 @@
 import { type ReactElement, useCallback, useEffect, useState } from 'react'
-import type { Task, TaskContext, TaskEnergy } from '@/types/task'
+import type { Task, TaskContext, TaskEnergy, Recurrence } from '@/types/task'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { ContextBadge, CONTEXT_CONFIG } from '@/components/ui/ContextBadge'
 import { EnergyIndicator, ENERGY_CONFIG } from '@/components/ui/EnergyIndicator'
 import { ProjectSelector } from './ProjectSelector'
+import { RecurrenceEditor } from './RecurrenceEditor'
+import { getRecurrenceDescription } from '@/services/recurrence'
 
 interface TaskDetailProps {
   task: Task
@@ -49,6 +51,7 @@ export function TaskDetail({
         deadline: editedTask.deadline,
         project: editedTask.project,
         isSomedayMaybe: editedTask.isSomedayMaybe,
+        recurrence: editedTask.recurrence,
       })
       setIsEditing(false)
     } finally {
@@ -291,6 +294,25 @@ export function TaskDetail({
               <span className="text-gray-900 dark:text-white">
                 {task.isSomedayMaybe ? 'Yes' : 'No'}
               </span>
+            )}
+          </div>
+
+          {/* Recurrence */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Recurrence
+            </label>
+            {isEditing ? (
+              <RecurrenceEditor
+                value={editedTask.recurrence}
+                onChange={(recurrence: Recurrence | undefined): void => {
+                  setEditedTask({ ...editedTask, recurrence })
+                }}
+              />
+            ) : (
+              <p className="text-gray-900 dark:text-white">
+                {getRecurrenceDescription(task.recurrence)}
+              </p>
             )}
           </div>
 
