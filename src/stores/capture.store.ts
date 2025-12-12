@@ -88,10 +88,7 @@ interface CaptureActions {
 
   // Suggestions
   setCurrentSuggestions: (suggestions: CurrentSuggestions | null) => void
-  acceptSuggestion: <K extends keyof CurrentSuggestions>(
-    property: K,
-    value: CurrentSuggestions[K] extends PropertySuggestion<infer T> ? T : never
-  ) => void
+  acceptSuggestion: (property: keyof CurrentSuggestions, value: string | number) => void
 
   // Navigation
   setCurrentItemIndex: (index: number) => void

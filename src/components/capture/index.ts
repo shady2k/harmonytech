@@ -1,1 +1,7 @@
 export { CaptureButton } from './CaptureButton'
+export { CaptureModal } from './CaptureModal'
+export { TextCapture } from './TextCapture'
+export { VoiceCapture } from './VoiceCapture'
+export { ProcessingIndicator } from './ProcessingIndicator'
+export { SuggestionReview } from './SuggestionReview'
+export { PropertySuggestion } from './PropertySuggestion'
