@@ -412,37 +412,37 @@
 
 ## Phase 13: Settings & Polish
 
-- [ ] **Create SettingsPage component**
+- [x] **Create SettingsPage component**
   Task ID: phase-13-settings-01
   > **Implementation**: Create `src/components/settings/SettingsPage.tsx`.
   > **Details**: Sections: AI Settings (API key, model), Sync Settings, Display Settings (theme), About. Uses settings store.
 
-- [ ] **Create ThemeToggle component**
+- [x] **Create ThemeToggle component**
   Task ID: phase-13-settings-02
   > **Implementation**: Create `src/components/settings/ThemeToggle.tsx`.
   > **Details**: Light/Dark/System toggle. Persists to settings. Updates Tailwind dark mode class on document.
 
-- [ ] **Create OfflineIndicator component**
+- [x] **Create OfflineIndicator component**
   Task ID: phase-13-settings-03
   > **Implementation**: Create `src/components/ui/OfflineIndicator.tsx`.
   > **Details**: Banner that shows when offline. "You're offline. Changes will sync when connected."
 
-- [ ] **Create InstallPrompt component**
+- [x] **Create InstallPrompt component**
   Task ID: phase-13-settings-04
   > **Implementation**: Create `src/components/pwa/InstallPrompt.tsx`.
   > **Details**: Prompts user to install PWA. Shows on mobile after 2nd visit. Uses `beforeinstallprompt` event.
 
-- [ ] **Create OnboardingFlow component**
+- [x] **Create OnboardingFlow component**
   Task ID: phase-13-settings-05
   > **Implementation**: Create `src/components/onboarding/OnboardingFlow.tsx`.
   > **Details**: First-run experience: Welcome → Enter API key → Quick tutorial (capture, view tasks, AI suggestions) → Done.
 
-- [ ] **Add keyboard shortcuts**
+- [x] **Add keyboard shortcuts**
   Task ID: phase-13-settings-06
   > **Implementation**: Create `src/hooks/useKeyboardShortcuts.ts`.
   > **Details**: Shortcuts: `c` = open capture, `Escape` = close modal, `1-4` = switch views, `/` = search. Register globally.
 
-- [ ] **Final responsive polish**
+- [x] **Final responsive polish**
   Task ID: phase-13-settings-07
   > **Implementation**: Review all components for responsive behavior.
   > **Details**: Test on mobile (375px), tablet (768px), desktop (1024px+). Fix any layout issues. Ensure touch targets are 44px minimum.
