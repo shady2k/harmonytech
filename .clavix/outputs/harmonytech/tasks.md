@@ -316,22 +316,22 @@
 
 ## Phase 9: AI Recommendations
 
-- [ ] **Create WhatToDoNext component**
+- [x] **Create WhatToDoNext component**
   Task ID: phase-9-recommendations-01
   > **Implementation**: Create `src/components/recommendations/WhatToDoNext.tsx`.
   > **Details**: Card/section that shows AI's top recommendation. "Why this?" explanation. "Show more options" expands to top 3. "Refresh" button.
 
-- [ ] **Create useRecommendations hook**
+- [x] **Create useRecommendations hook**
   Task ID: phase-9-recommendations-02
   > **Implementation**: Create `src/hooks/useRecommendations.ts`.
   > **Details**: `getRecommendations(context: { energy, timeAvailable, location })`. Calls AI with current tasks, returns ranked list with reasoning.
 
-- [ ] **Create ContextInput component**
+- [x] **Create ContextInput component**
   Task ID: phase-9-recommendations-03
   > **Implementation**: Create `src/components/recommendations/ContextInput.tsx`.
   > **Details**: Quick input for: "How much time do you have?" (chips: 5min, 15min, 30min, 1hr+), "Energy level?" (low, medium, high), "Where are you?" (context).
 
-- [ ] **Create RecommendationCard component**
+- [x] **Create RecommendationCard component**
   Task ID: phase-9-recommendations-04
   > **Implementation**: Create `src/components/recommendations/RecommendationCard.tsx`.
   > **Details**: Shows recommended task with AI reasoning ("This matches your energy level and available time"). "Start" button marks as in-progress.
@@ -340,27 +340,27 @@
 
 ## Phase 10: P2P Sync (Yjs + WebRTC)
 
-- [ ] **Install and configure Yjs**
+- [x] **Install and configure Yjs**
   Task ID: phase-10-sync-01
   > **Implementation**: Install Yjs and create `src/lib/sync.ts`.
   > **Details**: `npm install yjs y-webrtc`. Create Y.Doc instance. Set up WebRTC provider with room name derived from user ID.
 
-- [ ] **Create RxDB-Yjs sync bridge**
+- [x] **Create RxDB-Yjs sync bridge**
   Task ID: phase-10-sync-02
   > **Implementation**: Create `src/lib/rxdb-yjs-sync.ts`.
   > **Details**: Two-way sync between RxDB collections and Yjs shared types. On RxDB change → update Yjs. On Yjs update → update RxDB. Handle conflicts with timestamps.
 
-- [ ] **Create SyncStatus component**
+- [x] **Create SyncStatus component**
   Task ID: phase-10-sync-03
   > **Implementation**: Create `src/components/sync/SyncStatus.tsx`.
   > **Details**: Shows sync status: "Synced", "Syncing...", "Offline", "X peers connected". Small indicator in header.
 
-- [ ] **Create SyncSettings component**
+- [x] **Create SyncSettings component**
   Task ID: phase-10-sync-04
   > **Implementation**: Create `src/components/settings/SyncSettings.tsx`.
   > **Details**: Enable/disable sync toggle. Show room/device ID. "Connect new device" flow with QR code or manual code entry.
 
-- [ ] **Create useSyncStatus hook**
+- [x] **Create useSyncStatus hook**
   Task ID: phase-10-sync-05
   > **Implementation**: Create `src/hooks/useSyncStatus.ts`.
   > **Details**: Returns: `isOnline`, `isSyncing`, `connectedPeers`, `lastSyncTime`, `syncError`.
