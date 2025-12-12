@@ -204,37 +204,37 @@
 
 ## Phase 6: AI Integration (OpenRouter)
 
-- [ ] **Create OpenRouter client service**
+- [x] **Create OpenRouter client service**
   Task ID: phase-6-ai-01
   > **Implementation**: Create `src/services/openrouter.ts`.
   > **Details**: Class with methods: `chat(messages, model)`, `chatWithAudio(audioBase64, prompt, model)`. Uses fetch. Handles errors. Reads API key from settings store.
 
-- [ ] **Create AI prompts configuration**
+- [x] **Create AI prompts configuration**
   Task ID: phase-6-ai-02
   > **Implementation**: Create `src/lib/ai-prompts.ts`.
   > **Details**: Export prompt templates: `TASK_EXTRACTION_PROMPT`, `PROPERTY_SUGGESTION_PROMPT`, `WHAT_TO_DO_NEXT_PROMPT`. Structured to return JSON.
 
-- [ ] **Create task extraction service**
+- [x] **Create task extraction service**
   Task ID: phase-6-ai-03
   > **Implementation**: Create `src/services/task-extractor.ts`.
   > **Details**: `extractFromText(text): Promise<ExtractionResult>` - calls OpenRouter, parses response, returns `{ tasks: [], thoughts: [], isActionable: boolean }`.
 
-- [ ] **Create voice processing service**
+- [x] **Create voice processing service**
   Task ID: phase-6-ai-04
   > **Implementation**: Create `src/services/voice-processor.ts`.
   > **Details**: `processVoiceRecording(audioBlob): Promise<VoiceProcessingResult>`. Converts blob to base64, sends to Gemini via OpenRouter with audio input, returns transcript + extracted items.
 
-- [ ] **Create property suggester service**
+- [x] **Create property suggester service**
   Task ID: phase-6-ai-05
   > **Implementation**: Create `src/services/property-suggester.ts`.
   > **Details**: `suggestProperties(taskText, existingProjects): Promise<PropertySuggestions>`. Returns suggestions for all GTD properties with confidence scores and alternatives.
 
-- [ ] **Create useAI hook**
+- [x] **Create useAI hook**
   Task ID: phase-6-ai-06
   > **Implementation**: Create `src/hooks/useAI.ts`.
   > **Details**: Combines all AI services. Returns: `extractTasks`, `processVoice`, `suggestProperties`, `getRecommendation`, `isProcessing`, `error`. Handles API key validation.
 
-- [ ] **Create API key setup component**
+- [x] **Create API key setup component**
   Task ID: phase-6-ai-07
   > **Implementation**: Create `src/components/settings/ApiKeySetup.tsx`.
   > **Details**: Input for OpenRouter API key. "Test connection" button. Shows validation status. Saves to settings store (encrypted in RxDB).
