@@ -1,3 +1,5 @@
 export { useDatabase } from './useDatabase'
 export { useVoiceRecording } from './useVoiceRecording'
 export { useAI, toCurrentSuggestions } from './useAI'
+export { useTasks } from './useTasks'
+export { useThoughts } from './useThoughts'
