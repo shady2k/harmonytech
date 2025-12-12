@@ -369,22 +369,22 @@
 
 ## Phase 11: Recurring Tasks
 
-- [ ] **Add recurrence types**
+- [x] **Add recurrence types**
   Task ID: phase-11-recurring-01
   > **Implementation**: Update `src/types/task.ts` with recurrence types.
   > **Details**: Add `Recurrence` type: `{ pattern: 'daily' | 'weekly' | 'monthly' | 'custom', interval: number, daysOfWeek?: number[], dayOfMonth?: number, endDate?: string }`.
 
-- [ ] **Create RecurrenceEditor component**
+- [x] **Create RecurrenceEditor component**
   Task ID: phase-11-recurring-02
   > **Implementation**: Create `src/components/tasks/RecurrenceEditor.tsx`.
   > **Details**: UI to set recurrence: None, Daily, Weekly (pick days), Monthly (pick day), Custom. Shows preview: "Repeats every Monday and Wednesday".
 
-- [ ] **Create recurrence service**
+- [x] **Create recurrence service**
   Task ID: phase-11-recurring-03
   > **Implementation**: Create `src/services/recurrence.ts`.
   > **Details**: `calculateNextOccurrence(task): Date`, `createNextInstance(task): Task`. Called when task is completed.
 
-- [ ] **Update task completion logic**
+- [x] **Update task completion logic**
   Task ID: phase-11-recurring-04
   > **Implementation**: Update `src/hooks/useTasks.ts` `completeTask` function.
   > **Details**: When completing a recurring task: 1) Mark current as completed, 2) Call recurrence service to create next instance, 3) Insert new task with updated deadline.
@@ -393,17 +393,17 @@
 
 ## Phase 12: Archive & History
 
-- [ ] **Create ArchivedTasksList component**
+- [x] **Create ArchivedTasksList component**
   Task ID: phase-12-archive-01
   > **Implementation**: Create `src/components/archive/ArchivedTasksList.tsx`.
   > **Details**: List of completed tasks. Grouped by completion date (Today, Yesterday, This Week, Older). Search/filter by text.
 
-- [ ] **Create ArchiveStats component**
+- [x] **Create ArchiveStats component**
   Task ID: phase-12-archive-02
   > **Implementation**: Create `src/components/archive/ArchiveStats.tsx`.
   > **Details**: Shows: tasks completed today/this week/this month, streak, most productive context, average completion time.
 
-- [ ] **Create useArchive hook**
+- [x] **Create useArchive hook**
   Task ID: phase-12-archive-03
   > **Implementation**: Create `src/hooks/useArchive.ts`.
   > **Details**: Query completed tasks from RxDB. Returns: `archivedTasks`, `stats`, `searchArchive`, `restoreTask`.
