@@ -68,42 +68,42 @@
 
 ## Phase 2: Database Layer (RxDB)
 
-- [ ] **Install and configure RxDB**
+- [x] **Install and configure RxDB**
   Task ID: phase-2-database-01
   > **Implementation**: Install RxDB and create `src/lib/database.ts`.
   > **Details**: `npm install rxdb rxdb/plugin-storage-dexie`. Initialize database with Dexie storage adapter. Export `getDatabase()` singleton function.
 
-- [ ] **Define Task schema**
+- [x] **Define Task schema**
   Task ID: phase-2-database-02
   > **Implementation**: Create `src/types/task.ts` and `src/lib/schemas/task.schema.ts`.
   > **Details**: Task fields: `id`, `rawInput`, `nextAction`, `context` (enum: computer, phone, errands, home, anywhere), `energy` (enum: high, medium, low), `timeEstimate` (minutes), `deadline` (optional ISO date), `project` (optional string), `isSomedayMaybe` (boolean), `isCompleted`, `completedAt`, `createdAt`, `updatedAt`, `aiSuggestions` (JSON), `recurrence` (optional object).
 
-- [ ] **Define Thought schema**
+- [x] **Define Thought schema**
   Task ID: phase-2-database-03
   > **Implementation**: Create `src/types/thought.ts` and `src/lib/schemas/thought.schema.ts`.
   > **Details**: Thought fields: `id`, `content`, `tags` (string[]), `linkedProject` (optional), `createdAt`, `updatedAt`, `sourceRecordingId` (optional, for voice).
 
-- [ ] **Define VoiceRecording schema**
+- [x] **Define VoiceRecording schema**
   Task ID: phase-2-database-04
   > **Implementation**: Create `src/types/voice-recording.ts` and `src/lib/schemas/voice-recording.schema.ts`.
   > **Details**: Fields: `id`, `audioBlob` (attachment), `transcript`, `processedAt`, `extractedTaskIds` (string[]), `extractedThoughtIds` (string[]), `createdAt`.
 
-- [ ] **Define Project schema**
+- [x] **Define Project schema**
   Task ID: phase-2-database-05
   > **Implementation**: Create `src/types/project.ts` and `src/lib/schemas/project.schema.ts`.
   > **Details**: Fields: `id`, `name`, `description`, `isActive`, `createdAt`, `updatedAt`.
 
-- [ ] **Define Settings schema**
+- [x] **Define Settings schema**
   Task ID: phase-2-database-06
   > **Implementation**: Create `src/types/settings.ts` and `src/lib/schemas/settings.schema.ts`.
   > **Details**: Fields: `id` (always "user-settings"), `openRouterApiKey` (encrypted string), `preferredModel`, `theme`, `defaultContext`, `defaultEnergy`.
 
-- [ ] **Create database service with collections**
+- [x] **Create database service with collections**
   Task ID: phase-2-database-07
   > **Implementation**: Update `src/lib/database.ts` to register all schemas and export typed collections.
   > **Details**: Create `initDatabase()` that adds all collections. Export `db.tasks`, `db.thoughts`, `db.voiceRecordings`, `db.projects`, `db.settings`. Add methods for common operations.
 
-- [ ] **Create React context for database**
+- [x] **Create React context for database**
   Task ID: phase-2-database-08
   > **Implementation**: Create `src/contexts/DatabaseContext.tsx` and `src/hooks/useDatabase.ts`.
   > **Details**: Provider initializes database on mount, exposes via context. Hook provides typed access. Handle loading state.
