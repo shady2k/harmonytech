@@ -134,6 +134,7 @@ export function createNextInstance(task: Task): Task | null {
     updatedAt: now,
     aiSuggestions: task.aiSuggestions,
     recurrence: task.recurrence,
+    sourceThoughtId: task.sourceThoughtId ?? '',
     // Set deadline to next occurrence date if original had a deadline
     deadline: task.deadline !== undefined ? nextOccurrence.toISOString() : undefined,
   }

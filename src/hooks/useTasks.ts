@@ -153,6 +153,7 @@ export function useTasks(): UseTasksReturn {
       const now = new Date().toISOString()
       const newTask: Task = {
         ...taskData,
+        sourceThoughtId: taskData.sourceThoughtId ?? '',
         id: generateId(),
         createdAt: now,
         updatedAt: now,

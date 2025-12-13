@@ -79,7 +79,14 @@ async function createDatabase(): Promise<HarmonyTechDatabase> {
       migrationStrategies: {
         1: (oldDoc: Record<string, unknown>) => ({
           ...oldDoc,
-          sourceThoughtId: undefined,
+          sourceThoughtId:
+            typeof oldDoc['sourceThoughtId'] === 'string' ? oldDoc['sourceThoughtId'] : '',
+        }),
+        // v2: Make sourceThoughtId required with default '' (dexie.js requires indexed fields to be required)
+        2: (oldDoc: Record<string, unknown>) => ({
+          ...oldDoc,
+          sourceThoughtId:
+            typeof oldDoc['sourceThoughtId'] === 'string' ? oldDoc['sourceThoughtId'] : '',
         }),
       },
     },

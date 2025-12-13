@@ -130,6 +130,7 @@ function AppContent(): ReactElement {
         isCompleted: false,
         createdAt: now,
         updatedAt: now,
+        sourceThoughtId: '',
       })
     }
 

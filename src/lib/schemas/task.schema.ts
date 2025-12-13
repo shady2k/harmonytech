@@ -6,7 +6,7 @@ export type TaskDocument = RxDocument<TaskDocType>
 export type TaskCollection = RxCollection<TaskDocType>
 
 export const taskSchema: RxJsonSchema<TaskDocType> = {
-  version: 1,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -144,6 +144,7 @@ export const taskSchema: RxJsonSchema<TaskDocType> = {
     'isCompleted',
     'createdAt',
     'updatedAt',
+    'sourceThoughtId',
   ],
   indexes: ['createdAt', 'isCompleted', 'context', 'energy', 'sourceThoughtId'],
 }
