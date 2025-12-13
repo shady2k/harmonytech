@@ -1,11 +1,9 @@
 /**
- * Application logger using pino
+ * Application logger with pretty output
  * Supports debug, info, warn, error levels
  * Debug logging enabled in dev mode or via localStorage.setItem('debug', 'true')
  * In dev mode, logs are also written to files in /logs folder
  */
-
-import pino from 'pino'
 
 // Check if debug mode is enabled
 const isDebugEnabled = (): boolean => {
@@ -26,19 +24,67 @@ function sendToFileLogger(level: string, module: string, args: unknown[]): void 
   fetch('/api/dev-log', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify({ level, module, args }),
+    body: JSON.stringify({ level, module, args, timestamp: new Date().toISOString() }),
   }).catch(() => {
     // Silently ignore file logging errors
   })
 }
 
-// Create pino logger for browser
-const pinoLogger = pino({
-  browser: {
-    asObject: false,
-  },
-  level: isDebugEnabled() ? 'debug' : 'info',
-})
+// Format timestamp for console
+function formatTime(): string {
+  const now = new Date()
+  return (
+    now.toLocaleTimeString('en-US', { hour12: false }) +
+    '.' +
+    String(now.getMilliseconds()).padStart(3, '0')
+  )
+}
+
+// Format args for display
+function formatArgs(args: unknown[]): unknown[] {
+  return args.map((arg) => {
+    if (arg === null) return 'null'
+    if (arg === undefined) return 'undefined'
+    if (typeof arg === 'object') return arg
+    return arg
+  })
+}
+
+// Console colors for different levels
+const levelColors: Record<string, string> = {
+  debug: 'color: #888',
+  info: 'color: #4CAF50',
+  warn: 'color: #FF9800',
+  error: 'color: #f44336',
+}
+
+const levelLabels: Record<string, string> = {
+  debug: 'DEBUG',
+  info: 'INFO ',
+  warn: 'WARN ',
+  error: 'ERROR',
+}
+
+// Pretty console log
+function prettyLog(level: string, module: string, args: unknown[]): void {
+  if (level === 'debug' && !isDebugEnabled()) return
+
+  const time = formatTime()
+  const color = levelColors[level] ?? 'color: inherit'
+  const label = levelLabels[level] ?? level.toUpperCase()
+  const formattedArgs = formatArgs(args)
+
+  // Pretty format: [HH:MM:SS.mmm] LEVEL [Module] message
+  const prefix = `%c[${time}] ${label} [${module}]`
+
+  if (formattedArgs.length === 0) {
+    console.log(prefix, color)
+  } else if (formattedArgs.length === 1) {
+    console.log(prefix, color, formattedArgs[0])
+  } else {
+    console.log(prefix, color, ...formattedArgs)
+  }
+}
 
 // Logger interface with module prefixing
 interface Logger {
@@ -53,23 +99,21 @@ interface Logger {
  * @param module - Module name for prefixing logs
  */
 export function createLogger(module: string): Logger {
-  const child = pinoLogger.child({ module })
-
   return {
     debug: (...args: unknown[]): void => {
-      child.debug({ args }, `[${module}]`)
+      prettyLog('debug', module, args)
       sendToFileLogger('debug', module, args)
     },
     info: (...args: unknown[]): void => {
-      child.info({ args }, `[${module}]`)
+      prettyLog('info', module, args)
       sendToFileLogger('info', module, args)
     },
     warn: (...args: unknown[]): void => {
-      child.warn({ args }, `[${module}]`)
+      prettyLog('warn', module, args)
       sendToFileLogger('warn', module, args)
     },
     error: (...args: unknown[]): void => {
-      child.error({ args }, `[${module}]`)
+      prettyLog('error', module, args)
       sendToFileLogger('error', module, args)
     },
   }
@@ -83,6 +127,7 @@ export const logger = {
   openrouter: createLogger('OpenRouter'),
   db: createLogger('Database'),
   capture: createLogger('Capture'),
+  migration: createLogger('Migration'),
 }
 
 // Enable/disable debug mode

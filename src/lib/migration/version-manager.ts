@@ -120,7 +120,18 @@ export async function hasLegacyDatabase(): Promise<boolean> {
     return true // Assume it might exist
   }
   const databases = await indexedDB.databases()
-  return databases.some((db) => db.name === getLegacyDbName())
+  const legacyName = getLegacyDbName()
+
+  // Check for exact legacy name OR any Dexie-pattern databases
+  // RxDB Dexie creates: rxdb-dexie-{dbName}--{version}--{collection}
+  return databases.some((db) => {
+    if (db.name === undefined) return false
+    // Exact legacy name match
+    if (db.name === legacyName) return true
+    // Dexie pattern match for any harmonytech database
+    if (db.name.startsWith('rxdb-dexie-harmonytech')) return true
+    return false
+  })
 }
 
 export async function hasShadowDatabase(dbName: string): Promise<boolean> {
@@ -163,12 +174,16 @@ export async function detectInterruptedMigration(): Promise<InterruptedMigration
 // ============================================================================
 
 export function markMigrationComplete(targetVersion: number, targetDbName: string): void {
+  // Get current db name BEFORE updating - only set previousDbName if different from target
+  const currentDbName = getCurrentDbName()
+  const previousDbName = currentDbName !== targetDbName ? currentDbName : undefined
+
   // Update version info
   setDbVersionInfo({
     version: targetVersion,
     dbName: targetDbName,
     migratedAt: new Date().toISOString(),
-    previousDbName: getCurrentDbName(),
+    previousDbName,
   })
 
   // Mark lock as completed

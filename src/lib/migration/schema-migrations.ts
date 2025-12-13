@@ -26,9 +26,7 @@ export const thoughtMigrationStrategies: MigrationStrategies = {
 /**
  * Migration strategies for Task collection.
  * Version 0 -> 1: Add classificationStatus field, default to 'classified' for existing tasks.
- *
- * Note: scheduledStart/scheduledEnd are optional fields added without version bump.
- * RxDB handles optional fields gracefully - existing docs just have them as undefined.
+ * Version 1 -> 2: Schema structure fix (indexes, required fields) - no data changes needed.
  */
 export const taskMigrationStrategies: MigrationStrategies = {
   1: function (oldDoc: Task): Task {
@@ -37,6 +35,11 @@ export const taskMigrationStrategies: MigrationStrategies = {
       ...oldDoc,
       classificationStatus: 'classified',
     }
+  },
+  2: function (oldDoc: Task): Task {
+    // Schema structure changed (indexes, required fields) but data format is compatible
+    logger.db.info('Migrating task to v2:', oldDoc.id)
+    return oldDoc
   },
 }
 

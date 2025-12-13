@@ -22,9 +22,10 @@ export type TaskCollection = RxCollection<TaskDocType>
  * Version history:
  * - v0: Initial schema
  * - v1: Added scheduledStart, scheduledEnd, recurrence fields
+ * - v2: Schema structure fix (indexes, required fields) - no data changes
  */
 export const taskSchemaRxDB: RxJsonSchema<TaskDocType> = {
-  version: 1,
+  version: 2,
   primaryKey: 'id',
   type: 'object',
   properties: {

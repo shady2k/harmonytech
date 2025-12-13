@@ -6,7 +6,7 @@ import type { Settings } from '@/types/settings'
 
 // Version configuration - single source of truth
 // Bump when schema changes would cause DB6 errors or migration issues
-export const CURRENT_SCHEMA_VERSION = 2
+export const CURRENT_SCHEMA_VERSION = 3
 export const DB_NAME_PREFIX = 'harmonytech'
 export const DB_VERSION_KEY = 'harmonytech_db_version'
 export const MIGRATION_LOCK_KEY = 'harmonytech_migration_lock'

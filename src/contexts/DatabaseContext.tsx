@@ -8,6 +8,7 @@ import {
 import { MigrationProvider } from '@/contexts/MigrationContext'
 import { getMigrationOrchestrator } from '@/lib/migration'
 import { isDowngrade } from '@/lib/migration/version-manager'
+import { logger } from '@/lib/logger'
 
 // ============================================================================
 // Context Types
@@ -39,6 +40,7 @@ export function DatabaseProvider({ children }: DatabaseProviderProps): React.JSX
   // Step 1: Check if migration is needed BEFORE any database access
   useEffect(() => {
     const checkMigration = async (): Promise<void> => {
+      logger.db.info('=== DatabaseContext: Starting migration check ===')
       try {
         // MANDATORY: Check for downgrade FIRST
         if (isDowngrade()) {
@@ -47,9 +49,12 @@ export function DatabaseProvider({ children }: DatabaseProviderProps): React.JSX
           )
         }
         const orchestrator = getMigrationOrchestrator()
+        logger.db.info('DatabaseContext: Calling checkMigrationNeeded()')
         const needed = await orchestrator.checkMigrationNeeded()
+        logger.db.info('DatabaseContext: Migration needed =', needed)
         setNeedsMigration(needed)
       } catch (err) {
+        logger.db.error('DatabaseContext: Migration check error:', err)
         setError(err instanceof Error ? err : new Error('Migration check failed'))
         setNeedsMigration(false)
       }

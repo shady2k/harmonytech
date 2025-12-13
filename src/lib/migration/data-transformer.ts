@@ -146,9 +146,26 @@ function validateEnergy(value: unknown): string {
 // Thought Transformer
 // ============================================================================
 
+/**
+ * Derives processingStatus from existing data.
+ * For migrated data without processingStatus, uses aiProcessed to determine status.
+ */
+function deriveProcessingStatus(existing: unknown, aiProcessed: boolean): string {
+  const validStatuses = ['unprocessed', 'processing', 'processed', 'failed']
+  if (typeof existing === 'string' && validStatuses.includes(existing)) {
+    return existing
+  }
+  // For legacy data: if aiProcessed is true, mark as processed
+  return aiProcessed ? 'processed' : 'unprocessed'
+}
+
 const transformThought: DocumentTransformer = (doc) => {
   try {
     const cleaned = stripInternalFields(doc)
+
+    // Derive processingStatus from aiProcessed for migrated data
+    const aiProcessed = ensureBoolean(cleaned['aiProcessed'], true)
+    const processingStatus = deriveProcessingStatus(cleaned['processingStatus'], aiProcessed)
 
     const thought: Record<string, unknown> = {
       id: ensureString(cleaned['id']),
@@ -157,7 +174,8 @@ const transformThought: DocumentTransformer = (doc) => {
       createdAt: normalizeDate(cleaned['createdAt']),
       updatedAt: normalizeDate(cleaned['updatedAt']),
       linkedTaskIds: ensureArray<string>(cleaned['linkedTaskIds'], []),
-      aiProcessed: ensureBoolean(cleaned['aiProcessed'], true), // Default true for migrated
+      aiProcessed,
+      processingStatus,
     }
 
     // Optional fields

@@ -3,6 +3,7 @@ import { createRxDatabase } from 'rxdb'
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie'
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv'
 
+import { logger } from '@/lib/logger'
 import { taskSchemaRxDB, type TaskCollection } from '@/lib/schemas/task.schema'
 import { thoughtSchema, type ThoughtCollection } from '@/lib/schemas/thought.schema'
 import {
@@ -95,52 +96,131 @@ export async function createShadowDatabase(dbName: string): Promise<ShadowDataba
  *
  * Note: This uses raw IndexedDB access to avoid triggering RxDB's
  * migration system which is what's corrupted.
+ *
+ * For RxDB Dexie storage, this returns a "pseudo" database object
+ * that holds the dbName for use by getCollectionDocsRaw.
  */
-export async function openLegacyDatabaseRaw(dbName: string): Promise<IDBDatabase> {
-  return new Promise((resolve, reject) => {
-    const request = indexedDB.open(dbName)
-    request.onerror = (): void => {
-      reject(new Error(`Failed to open database: ${dbName}`))
-    }
-    request.onsuccess = (): void => {
-      resolve(request.result)
-    }
-  })
+export function openLegacyDatabaseRaw(dbName: string): IDBDatabase {
+  // For Dexie storage, we don't actually open a single database here.
+  // Instead, we return a minimal object that getCollectionDocsRaw can use.
+  // The actual databases are separate per collection: rxdb-dexie-{dbName}--{version}--{collection}
+  return { name: dbName } as unknown as IDBDatabase
 }
 
 /**
  * Gets all documents from a collection using raw IndexedDB.
  * This is used when RxDB's migration system is corrupted.
+ *
+ * RxDB Dexie storage creates separate IndexedDB databases for each collection:
+ * - Database name pattern: rxdb-dexie-{dbName}--{schemaVersion}--{collectionName}
+ * - Object store name: docs
+ *
+ * This function scans ALL harmonytech Dexie databases (not just the specified one)
+ * to ensure we capture data from any failed migrations.
  */
 export async function getCollectionDocsRaw(
   db: IDBDatabase,
   collectionName: string
 ): Promise<Record<string, unknown>[]> {
-  // RxDB stores documents in object stores named like: {collectionName}-{schemaVersion}-documents
-  // We need to find the correct object store
-  const storeNames = Array.from(db.objectStoreNames)
-  const docStore = storeNames.find(
-    (name) => name.startsWith(`${collectionName}-`) && name.endsWith('-documents')
-  )
+  const targetDbName = db.name // This is the TARGET db, we want to read from ALL others
 
-  if (docStore === undefined) {
-    // Collection doesn't exist or has no documents
+  // Find all Dexie databases for this collection across ALL harmonytech databases
+  if (typeof indexedDB.databases !== 'function') {
+    logger.db.info('[Migration] indexedDB.databases not available')
     return []
   }
 
-  return new Promise((resolve, reject) => {
-    const transaction = db.transaction(docStore, 'readonly')
-    const store = transaction.objectStore(docStore)
-    const request = store.getAll()
+  const allDatabases = await indexedDB.databases()
+  // Match pattern: rxdb-dexie-harmonytech*--{version}--{collectionName}
+  // But exclude the target database we're migrating TO
+  const collectionDbPattern = new RegExp(`^rxdb-dexie-harmonytech[^-]*--\\d+--${collectionName}$`)
+
+  logger.db.info(`[Migration] Looking for ${collectionName}, target=${targetDbName}`)
+  logger.db.info(
+    '[Migration] All DBs:',
+    allDatabases.map((d) => d.name)
+  )
+
+  const matchingDbs: string[] = []
+  for (const d of allDatabases) {
+    if (d.name === undefined) continue
+    // Match harmonytech Dexie DBs for this collection
+    const matches = collectionDbPattern.test(d.name)
+    // Exclude target database (don't read from what we're writing to)
+    const isTarget = d.name.includes(`rxdb-dexie-${targetDbName}--`)
+    logger.db.info(
+      `[Migration] ${d.name}: matches=${String(matches)}, isTarget=${String(isTarget)}`
+    )
+    if (!matches) continue
+    if (isTarget) continue
+
+    matchingDbs.push(d.name)
+  }
+
+  logger.db.info('[Migration] Matching DBs to read:', matchingDbs)
+
+  if (matchingDbs.length === 0) {
+    return []
+  }
+
+  // Read from all matching databases and merge (dedupe by id)
+  const allDocs = new Map<string, Record<string, unknown>>()
+
+  for (const dexieDbName of matchingDbs) {
+    const docs = await readDocsFromDexieDb(dexieDbName)
+    logger.db.info(`[Migration] Read ${String(docs.length)} docs from ${dexieDbName}`)
+    for (const doc of docs) {
+      const id = doc['id'] as string | undefined
+      if (id !== undefined) {
+        // Later versions override earlier ones
+        allDocs.set(id, doc)
+      }
+    }
+  }
+
+  // Filter out deleted documents
+  const activeDocs = Array.from(allDocs.values()).filter((doc) => doc['_deleted'] !== true)
+  logger.db.info(
+    `[Migration] Total active docs for ${collectionName}: ${String(activeDocs.length)}`
+  )
+  return activeDocs
+}
+
+/**
+ * Reads all documents from a single RxDB Dexie database.
+ */
+async function readDocsFromDexieDb(dexieDbName: string): Promise<Record<string, unknown>[]> {
+  return new Promise((resolve) => {
+    const request = indexedDB.open(dexieDbName)
 
     request.onerror = (): void => {
-      reject(new Error(`Failed to read ${collectionName}`))
+      resolve([]) // Continue on error
     }
+
     request.onsuccess = (): void => {
-      const docs = request.result as Record<string, unknown>[]
-      // Filter out deleted documents
-      const activeDocs = docs.filter((doc) => doc['_deleted'] !== true)
-      resolve(activeDocs)
+      const db = request.result
+      const storeNames = Array.from(db.objectStoreNames)
+
+      // Dexie stores docs in 'docs' object store
+      if (!storeNames.includes('docs')) {
+        db.close()
+        resolve([])
+        return
+      }
+
+      const transaction = db.transaction('docs', 'readonly')
+      const store = transaction.objectStore('docs')
+      const getAllRequest = store.getAll()
+
+      getAllRequest.onerror = (): void => {
+        db.close()
+        resolve([])
+      }
+
+      getAllRequest.onsuccess = (): void => {
+        db.close()
+        resolve(getAllRequest.result as Record<string, unknown>[])
+      }
     }
   })
 }

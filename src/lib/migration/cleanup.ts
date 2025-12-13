@@ -6,6 +6,7 @@ import {
   getPreviousDbName,
 } from './version-manager'
 import { deleteDatabase } from './shadow-db'
+import { logger } from '@/lib/logger'
 
 // ============================================================================
 // Orphan Detection
@@ -72,13 +73,16 @@ export async function detectOrphanedDatabases(): Promise<OrphanDetectionResult> 
  * Should be called after detectOrphanedDatabases() if orphans are found.
  */
 export async function cleanupOrphanedDatabases(orphans: string[]): Promise<void> {
+  logger.db.info('[Cleanup] cleanupOrphanedDatabases called with:', orphans)
   for (const dbName of orphans) {
+    logger.db.info('[Cleanup] Deleting orphan database:', dbName)
     await deleteDatabase(dbName)
   }
 
   // Also clear stale migration lock if present
   const lock = getMigrationLock()
   if (lock !== null && lock.status === 'in_progress') {
+    logger.db.info('[Cleanup] Clearing stale migration lock')
     clearMigrationLock()
   }
 }
@@ -93,23 +97,37 @@ export async function cleanupOrphanedDatabases(orphans: string[]): Promise<void>
  */
 export async function cleanupOldDatabase(): Promise<void> {
   const previousDbName = getPreviousDbName()
+  logger.db.info('[Cleanup] cleanupOldDatabase called, previousDbName:', previousDbName)
 
   if (previousDbName === undefined) {
+    logger.db.info('[Cleanup] No previous DB name, nothing to clean up')
     return // Nothing to clean up
   }
 
   // Delete the old database
+  logger.db.info('[Cleanup] Deleting old database:', previousDbName)
   await deleteDatabase(previousDbName)
 
   // Also clean up any RxDB internal databases for the old name
+  // Patterns to match:
+  // - Legacy: {previousDbName}-{version}-{collection}
+  // - Dexie: rxdb-dexie-{previousDbName}--{version}--{collection}
   if (typeof indexedDB.databases === 'function') {
     const databases = await indexedDB.databases()
+    logger.db.info('[Cleanup] Scanning for internal DBs to clean, pattern:', previousDbName)
     for (const db of databases) {
-      if (db.name?.startsWith(`${previousDbName}-`) === true) {
+      if (db.name === undefined) continue
+
+      const isLegacyInternal = db.name.startsWith(`${previousDbName}-`)
+      const isDexieInternal = db.name.startsWith(`rxdb-dexie-${previousDbName}--`)
+
+      if (isLegacyInternal || isDexieInternal) {
+        logger.db.info('[Cleanup] Deleting internal DB:', db.name)
         await deleteDatabase(db.name)
       }
     }
   }
+  logger.db.info('[Cleanup] cleanupOldDatabase complete')
 }
 
 // ============================================================================
