@@ -6,7 +6,7 @@ export type TaskDocument = RxDocument<TaskDocType>
 export type TaskCollection = RxCollection<TaskDocType>
 
 export const taskSchema: RxJsonSchema<TaskDocType> = {
-  version: 2,
+  version: 0,
   primaryKey: 'id',
   type: 'object',
   properties: {

@@ -8,6 +8,30 @@ import {
 import { MigrationProvider } from '@/contexts/MigrationContext'
 import { getMigrationOrchestrator } from '@/lib/migration'
 
+// Auto-heal: clear all HarmonyTech databases
+async function clearAllDatabases(): Promise<void> {
+  const databases = await indexedDB.databases()
+  for (const dbInfo of databases) {
+    const dbName = dbInfo.name
+    if (dbName?.startsWith('harmonytech') === true) {
+      await new Promise<void>((resolve) => {
+        const request = indexedDB.deleteDatabase(dbName)
+        request.onsuccess = (): void => {
+          resolve()
+        }
+        request.onerror = (): void => {
+          resolve()
+        }
+        request.onblocked = (): void => {
+          resolve()
+        }
+      })
+    }
+  }
+  localStorage.removeItem('harmonytech_db_version')
+  localStorage.removeItem('harmonytech_migration_lock')
+}
+
 // ============================================================================
 // Context Types
 // ============================================================================
@@ -72,6 +96,15 @@ export function DatabaseProvider({ children }: DatabaseProviderProps): React.JSX
         await initializeSettings(database)
         setDb(database)
       } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : String(err)
+
+        // Auto-heal: if schema mismatch, clear old databases and retry
+        if (errorMessage.includes('different schema') || errorMessage.includes('DB6')) {
+          await clearAllDatabases()
+          window.location.reload()
+          return
+        }
+
         setError(err instanceof Error ? err : new Error('Failed to initialize database'))
       } finally {
         setIsLoading(false)

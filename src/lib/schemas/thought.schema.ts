@@ -6,7 +6,7 @@ export type ThoughtDocument = RxDocument<ThoughtDocType>
 export type ThoughtCollection = RxCollection<ThoughtDocType>
 
 export const thoughtSchema: RxJsonSchema<ThoughtDocType> = {
-  version: 1,
+  version: 0,
   primaryKey: 'id',
   type: 'object',
   properties: {

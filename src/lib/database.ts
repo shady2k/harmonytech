@@ -35,7 +35,6 @@ if (import.meta.env.DEV) {
   addRxPlugin(RxDBDevModePlugin)
 }
 addRxPlugin(RxDBQueryBuilderPlugin)
-// Note: RxDBMigrationSchemaPlugin removed - we use shadow migration instead
 addRxPlugin(RxDBUpdatePlugin)
 addRxPlugin(RxDBLeaderElectionPlugin)
 
@@ -91,24 +90,13 @@ async function createDatabaseWithName(dbName: string): Promise<HarmonyTechDataba
     ignoreDuplicate: true,
   })
 
-  // Add collections with schemas - NO migration strategies
-  // Shadow migration handles data transformation separately
+  // Add collections with schemas (all at version 0 - no migrations needed)
   await db.addCollections({
-    tasks: {
-      schema: taskSchema,
-    },
-    thoughts: {
-      schema: thoughtSchema,
-    },
-    voice_recordings: {
-      schema: voiceRecordingSchema,
-    },
-    projects: {
-      schema: projectSchema,
-    },
-    settings: {
-      schema: settingsSchema,
-    },
+    tasks: { schema: taskSchema },
+    thoughts: { schema: thoughtSchema },
+    voice_recordings: { schema: voiceRecordingSchema },
+    projects: { schema: projectSchema },
+    settings: { schema: settingsSchema },
   })
 
   return db
