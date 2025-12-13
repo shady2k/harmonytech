@@ -1,28 +1,34 @@
-import Dexie, { type Table } from 'dexie'
 import type { RxCollection } from 'rxdb'
 import { type BackupRecord, BACKUP_DB_NAME } from './types'
 import type { HarmonyTechDatabase } from '@/lib/database'
 
 // ============================================================================
-// Backup Database (Dexie - separate from RxDB)
+// Backup Database (Raw IndexedDB - avoids Dexie version conflicts)
 // ============================================================================
 
-class BackupDatabase extends Dexie {
-  backups!: Table<BackupRecord, string>
+const BACKUP_STORE_NAME = 'backups'
+const BACKUP_DB_VERSION = 1
 
-  constructor() {
-    super(BACKUP_DB_NAME)
-    this.version(1).stores({
-      backups: 'id, version, createdAt',
-    })
-  }
-}
+function openBackupDb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const request = indexedDB.open(BACKUP_DB_NAME, BACKUP_DB_VERSION)
 
-let backupDb: BackupDatabase | null = null
+    request.onerror = (): void => {
+      reject(new Error('Failed to open backup database'))
+    }
 
-function getBackupDb(): BackupDatabase {
-  backupDb ??= new BackupDatabase()
-  return backupDb
+    request.onsuccess = (): void => {
+      resolve(request.result)
+    }
+
+    request.onupgradeneeded = (event): void => {
+      const db = (event.target as IDBOpenDBRequest).result
+      if (!db.objectStoreNames.contains(BACKUP_STORE_NAME)) {
+        const store = db.createObjectStore(BACKUP_STORE_NAME, { keyPath: 'id' })
+        store.createIndex('createdAt', 'createdAt', { unique: false })
+      }
+    }
+  })
 }
 
 // ============================================================================
@@ -65,8 +71,22 @@ export async function createBackup(
     },
   }
 
-  await getBackupDb().backups.add(backup)
-  return backup.id
+  const backupDb = await openBackupDb()
+  return new Promise((resolve, reject) => {
+    const transaction = backupDb.transaction(BACKUP_STORE_NAME, 'readwrite')
+    const store = transaction.objectStore(BACKUP_STORE_NAME)
+    const request = store.add(backup)
+
+    request.onsuccess = (): void => {
+      backupDb.close()
+      resolve(backup.id)
+    }
+
+    request.onerror = (): void => {
+      backupDb.close()
+      reject(new Error('Failed to save backup'))
+    }
+  })
 }
 
 // ============================================================================
@@ -164,17 +184,71 @@ export function downloadBackupAsFile(backup: BackupRecord): void {
 // ============================================================================
 
 export async function getBackup(id: string): Promise<BackupRecord | null> {
-  const backup = await getBackupDb().backups.get(id)
-  return backup ?? null
+  const backupDb = await openBackupDb()
+  return new Promise((resolve) => {
+    const transaction = backupDb.transaction(BACKUP_STORE_NAME, 'readonly')
+    const store = transaction.objectStore(BACKUP_STORE_NAME)
+    const request = store.get(id)
+
+    request.onsuccess = (): void => {
+      backupDb.close()
+      const result = request.result as BackupRecord | undefined
+      resolve(result ?? null)
+    }
+
+    request.onerror = (): void => {
+      backupDb.close()
+      resolve(null)
+    }
+  })
 }
 
 export async function getLatestBackup(): Promise<BackupRecord | null> {
-  const backups = await getBackupDb().backups.orderBy('createdAt').reverse().first()
-  return backups ?? null
+  const backupDb = await openBackupDb()
+  return new Promise((resolve) => {
+    const transaction = backupDb.transaction(BACKUP_STORE_NAME, 'readonly')
+    const store = transaction.objectStore(BACKUP_STORE_NAME)
+    const index = store.index('createdAt')
+    const request = index.openCursor(null, 'prev')
+
+    request.onsuccess = (): void => {
+      const cursor = request.result
+      backupDb.close()
+      resolve(cursor !== null ? (cursor.value as BackupRecord) : null)
+    }
+
+    request.onerror = (): void => {
+      backupDb.close()
+      resolve(null)
+    }
+  })
 }
 
 export async function listBackups(): Promise<BackupRecord[]> {
-  return getBackupDb().backups.orderBy('createdAt').reverse().toArray()
+  const backupDb = await openBackupDb()
+  return new Promise((resolve) => {
+    const transaction = backupDb.transaction(BACKUP_STORE_NAME, 'readonly')
+    const store = transaction.objectStore(BACKUP_STORE_NAME)
+    const index = store.index('createdAt')
+    const request = index.openCursor(null, 'prev')
+    const backups: BackupRecord[] = []
+
+    request.onsuccess = (): void => {
+      const cursor = request.result
+      if (cursor !== null) {
+        backups.push(cursor.value as BackupRecord)
+        cursor.continue()
+      } else {
+        backupDb.close()
+        resolve(backups)
+      }
+    }
+
+    request.onerror = (): void => {
+      backupDb.close()
+      resolve([])
+    }
+  })
 }
 
 // ============================================================================
@@ -182,7 +256,22 @@ export async function listBackups(): Promise<BackupRecord[]> {
 // ============================================================================
 
 export async function deleteBackup(id: string): Promise<void> {
-  await getBackupDb().backups.delete(id)
+  const backupDb = await openBackupDb()
+  return new Promise((resolve) => {
+    const transaction = backupDb.transaction(BACKUP_STORE_NAME, 'readwrite')
+    const store = transaction.objectStore(BACKUP_STORE_NAME)
+    const request = store.delete(id)
+
+    request.onsuccess = (): void => {
+      backupDb.close()
+      resolve()
+    }
+
+    request.onerror = (): void => {
+      backupDb.close()
+      resolve()
+    }
+  })
 }
 
 export async function deleteOldBackups(keepCount = 3): Promise<void> {
