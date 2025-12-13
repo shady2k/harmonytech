@@ -41,4 +41,5 @@ export interface Task {
   updatedAt: string
   aiSuggestions?: AISuggestions
   recurrence?: Recurrence
+  sourceThoughtId?: string
 }

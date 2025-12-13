@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { NAV_ITEMS } from '@/lib/constants/navigation'
 import type { ViewType } from '@/types/navigation'
 import { NavIcon } from './NavIcon'
+import { AIStatusIndicator } from './AIStatusIndicator'
 
 interface SidebarProps {
   activeView: ViewType
@@ -47,6 +48,11 @@ export function Sidebar({ activeView, onViewChange, onCaptureClick }: SidebarPro
             </button>
           ))}
         </nav>
+
+        {/* AI Status Indicator */}
+        <div className="border-t border-gray-200 p-4 dark:border-gray-800">
+          <AIStatusIndicator />
+        </div>
       </div>
     </aside>
   )

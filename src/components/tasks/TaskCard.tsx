@@ -8,6 +8,7 @@ interface TaskCardProps {
   task: Task
   onToggleComplete: (id: string, isCompleted: boolean) => void
   onClick: (id: string) => void
+  onViewSourceThought?: (thoughtId: string) => void
   className?: string
 }
 
@@ -52,6 +53,7 @@ export function TaskCard({
   task,
   onToggleComplete,
   onClick,
+  onViewSourceThought,
   className = '',
 }: TaskCardProps): ReactElement {
   const handleCheckboxChange = (e: React.MouseEvent): void => {
@@ -187,6 +189,38 @@ export function TaskCard({
                 Someday
               </span>
             )}
+
+            {/* Source thought link */}
+            {task.sourceThoughtId !== undefined &&
+              task.sourceThoughtId !== '' &&
+              onViewSourceThought && (
+                <button
+                  type="button"
+                  onClick={(e): void => {
+                    e.stopPropagation()
+                    if (task.sourceThoughtId !== undefined) {
+                      onViewSourceThought(task.sourceThoughtId)
+                    }
+                  }}
+                  className="flex items-center gap-1 text-xs text-indigo-500 hover:text-indigo-600 dark:text-indigo-400 dark:hover:text-indigo-300"
+                  title="View source thought"
+                >
+                  <svg
+                    className="h-3.5 w-3.5"
+                    fill="none"
+                    viewBox="0 0 24 24"
+                    stroke="currentColor"
+                  >
+                    <path
+                      strokeLinecap="round"
+                      strokeLinejoin="round"
+                      strokeWidth={2}
+                      d="M3.9 12c0-1.71 1.39-3.1 3.1-3.1h4V7H7c-2.76 0-5 2.24-5 5s2.24 5 5 5h4v-1.9H7c-1.71 0-3.1-1.39-3.1-3.1zM8 13h8v-2H8v2zm9-6h-4v1.9h4c1.71 0 3.1 1.39 3.1 3.1s-1.39 3.1-3.1 3.1h-4V17h4c2.76 0 5-2.24 5-5s-2.24-5-5-5z"
+                    />
+                  </svg>
+                  <span>From thought</span>
+                </button>
+              )}
           </div>
         </div>
 

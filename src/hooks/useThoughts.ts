@@ -26,6 +26,11 @@ function documentToThought(doc: RxDocument<Thought>): Thought {
     ? data.tags.filter((tag): tag is string => typeof tag === 'string')
     : []
 
+  // Safely extract linkedTaskIds with proper typing
+  const linkedTaskIds: string[] = Array.isArray(data.linkedTaskIds)
+    ? data.linkedTaskIds.filter((id): id is string => typeof id === 'string')
+    : []
+
   return {
     id: data.id,
     content: data.content,
@@ -34,6 +39,8 @@ function documentToThought(doc: RxDocument<Thought>): Thought {
     createdAt: data.createdAt,
     updatedAt: data.updatedAt,
     sourceRecordingId: data.sourceRecordingId,
+    linkedTaskIds,
+    aiProcessed: data.aiProcessed ?? true,
   }
 }
 
@@ -86,6 +93,8 @@ export function useThoughts(): UseThoughtsReturn {
       const newThought: Thought = {
         ...thoughtData,
         id: generateId(),
+        linkedTaskIds: thoughtData.linkedTaskIds ?? [],
+        aiProcessed: thoughtData.aiProcessed ?? false,
         createdAt: now,
         updatedAt: now,
       }

@@ -1,9 +1,10 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useEffect } from 'react'
 import { useSettingsStore } from '@/stores'
 import { extractFromText, type ExtractionResult } from '@/services/task-extractor'
 import { processVoiceRecording, type VoiceProcessingResult } from '@/services/voice-processor'
 import { suggestProperties, type PropertySuggestions } from '@/services/property-suggester'
-import type { ExtractedTask, ExtractedThought, CurrentSuggestions } from '@/stores/capture.store'
+import { aiService, createProvider } from '@/services/ai'
+import type { CurrentSuggestions } from '@/stores/capture.store'
 
 interface UseAIReturn {
   // Task extraction
@@ -18,12 +19,6 @@ interface UseAIReturn {
     existingProjects?: string[]
   ) => Promise<PropertySuggestions>
 
-  // Convert extraction result to store format
-  toExtractedItems: (result: ExtractionResult | VoiceProcessingResult) => Promise<{
-    tasks: ExtractedTask[]
-    thoughts: ExtractedThought[]
-  }>
-
   // State
   isProcessing: boolean
   error: string | null
@@ -32,13 +27,44 @@ interface UseAIReturn {
   // API key status
   isApiKeyValid: boolean | null
   validateApiKey: () => Promise<boolean>
+
+  // AI availability
+  isAIAvailable: boolean
 }
 
 export function useAI(): UseAIReturn {
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [isAIAvailable, setIsAIAvailable] = useState(false)
 
-  const { apiKey, textModel, voiceModel, isApiKeyValid, validateApiKey: storeValidateApiKey } = useSettingsStore()
+  const {
+    aiProvider,
+    apiKey,
+    yandexApiKey,
+    yandexFolderId,
+    textModel,
+    voiceModel,
+    isApiKeyValid,
+    validateApiKey: storeValidateApiKey,
+    getActiveApiKey,
+  } = useSettingsStore()
+
+  // Update AI provider when settings change
+  useEffect(() => {
+    const activeKey = getActiveApiKey()
+    if (activeKey !== null && activeKey !== '') {
+      const config = {
+        apiKey: activeKey,
+        folderId: aiProvider === 'yandex' ? (yandexFolderId ?? undefined) : undefined,
+      }
+      const provider = createProvider(aiProvider, config)
+      aiService.setProvider(provider)
+      setIsAIAvailable(provider.isAvailable())
+    } else {
+      aiService.setProvider(null)
+      setIsAIAvailable(false)
+    }
+  }, [aiProvider, apiKey, yandexApiKey, yandexFolderId, getActiveApiKey])
 
   const clearError = useCallback((): void => {
     setError(null)
@@ -125,89 +151,16 @@ export function useAI(): UseAIReturn {
     [apiKey]
   )
 
-  const toExtractedItems = useCallback(
-    async (
-      result: ExtractionResult | VoiceProcessingResult
-    ): Promise<{
-      tasks: ExtractedTask[]
-      thoughts: ExtractedThought[]
-    }> => {
-      if (apiKey === null || apiKey === '') {
-        throw new Error('API key not configured')
-      }
-
-      setIsProcessing(true)
-      setError(null)
-
-      try {
-        // Convert tasks with property suggestions
-        const tasksWithSuggestions: ExtractedTask[] = await Promise.all(
-          result.tasks.map(async (task) => {
-            try {
-              const suggestions = await suggestProperties(task.nextAction, [], apiKey)
-
-              return {
-                rawInput: task.rawInput,
-                nextAction: task.nextAction,
-                suggestions: {
-                  suggestedContext: suggestions.context.value,
-                  suggestedEnergy: suggestions.energy.value,
-                  suggestedTimeEstimate: suggestions.timeEstimate.value,
-                  suggestedProject: suggestions.project.value ?? undefined,
-                  confidence: Math.min(
-                    suggestions.context.confidence,
-                    suggestions.energy.confidence,
-                    suggestions.timeEstimate.confidence
-                  ),
-                  alternatives: {
-                    context: suggestions.context.alternatives,
-                    energy: suggestions.energy.alternatives,
-                    timeEstimate: suggestions.timeEstimate.alternatives,
-                  },
-                },
-              }
-            } catch {
-              // If suggestion fails, return task without suggestions
-              return {
-                rawInput: task.rawInput,
-                nextAction: task.nextAction,
-                suggestions: {},
-              }
-            }
-          })
-        )
-
-        // Convert thoughts
-        const thoughts: ExtractedThought[] = result.thoughts.map((thought) => ({
-          content: thought.content,
-          tags: 'suggestedTags' in thought ? thought.suggestedTags : [],
-        }))
-
-        return {
-          tasks: tasksWithSuggestions,
-          thoughts,
-        }
-      } catch (err) {
-        const message = err instanceof Error ? err.message : 'Failed to process items'
-        setError(message)
-        throw err
-      } finally {
-        setIsProcessing(false)
-      }
-    },
-    [apiKey]
-  )
-
   return {
     extractTasks,
     processVoice,
     suggestTaskProperties,
-    toExtractedItems,
     isProcessing,
     error,
     clearError,
     isApiKeyValid,
     validateApiKey,
+    isAIAvailable,
   }
 }
 

@@ -6,4 +6,6 @@ export interface Thought {
   createdAt: string
   updatedAt: string
   sourceRecordingId?: string
+  linkedTaskIds: string[]
+  aiProcessed: boolean
 }

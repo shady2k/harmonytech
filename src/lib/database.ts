@@ -76,9 +76,22 @@ async function createDatabase(): Promise<HarmonyTechDatabase> {
   await db.addCollections({
     tasks: {
       schema: taskSchema,
+      migrationStrategies: {
+        1: (oldDoc: Record<string, unknown>) => ({
+          ...oldDoc,
+          sourceThoughtId: undefined,
+        }),
+      },
     },
     thoughts: {
       schema: thoughtSchema,
+      migrationStrategies: {
+        1: (oldDoc: Record<string, unknown>) => ({
+          ...oldDoc,
+          linkedTaskIds: [],
+          aiProcessed: true, // Existing thoughts are considered already processed
+        }),
+      },
     },
     voice_recordings: {
       schema: voiceRecordingSchema,
@@ -88,6 +101,12 @@ async function createDatabase(): Promise<HarmonyTechDatabase> {
     },
     settings: {
       schema: settingsSchema,
+      migrationStrategies: {
+        1: (oldDoc: Record<string, unknown>) => ({
+          ...oldDoc,
+          aiProvider: 'openrouter',
+        }),
+      },
     },
   })
 
@@ -101,6 +120,7 @@ export async function initializeSettings(db: HarmonyTechDatabase): Promise<void>
     if (!existingSettings) {
       await db.settings.insert({
         id: 'user-settings',
+        aiProvider: 'openrouter',
         theme: 'system',
         defaultContext: 'anywhere',
         defaultEnergy: 'medium',

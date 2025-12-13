@@ -1,4 +1,4 @@
-import { type ReactElement, useState } from 'react'
+import { type ReactElement, useState, useCallback } from 'react'
 import type { Thought } from '@/types/thought'
 import type { Task, TaskContext, TaskEnergy } from '@/types/task'
 import { Button } from '@/components/ui/Button'
@@ -59,7 +59,13 @@ export function ConvertToTaskFlow({
   onComplete,
   onCancel,
 }: ConvertToTaskFlowProps): ReactElement {
-  const { extractTasks, suggestTaskProperties, isProcessing, error: aiError } = useAI()
+  const {
+    extractTasks,
+    suggestTaskProperties,
+    isProcessing,
+    error: aiError,
+    isAIAvailable,
+  } = useAI()
   const { addTask } = useTasks()
 
   const [step, setStep] = useState<ProcessingStep>('idle')
@@ -67,7 +73,27 @@ export function ConvertToTaskFlow({
   const [deleteThoughtAfter, setDeleteThoughtAfter] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
+  // Start without AI - go directly to review with default values
+  const startWithoutAI = useCallback((): void => {
+    const draft: TaskDraft = {
+      nextAction: thought.content,
+      rawInput: thought.content,
+      context: 'anywhere',
+      energy: 'medium',
+      timeEstimate: 15,
+      project: thought.linkedProject,
+    }
+    setTaskDraft(draft)
+    setStep('review')
+  }, [thought])
+
   const startConversion = async (): Promise<void> => {
+    // If AI is not available, skip to review with defaults
+    if (!isAIAvailable) {
+      startWithoutAI()
+      return
+    }
+
     setStep('extracting')
     setError(null)
 
@@ -171,7 +197,9 @@ export function ConvertToTaskFlow({
           </div>
           <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Convert to Task</h3>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
-            AI will analyze this thought and suggest task properties.
+            {isAIAvailable
+              ? 'AI will analyze this thought and suggest task properties.'
+              : 'Create a task from this thought. Configure an AI provider in Settings for automatic suggestions.'}
           </p>
         </div>
 
@@ -189,7 +217,7 @@ export function ConvertToTaskFlow({
               void startConversion()
             }}
           >
-            Start Conversion
+            {isAIAvailable ? 'Start Conversion' : 'Create Task'}
           </Button>
         </div>
       </div>

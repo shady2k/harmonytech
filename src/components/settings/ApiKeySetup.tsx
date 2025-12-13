@@ -51,7 +51,7 @@ export function ApiKeySetup(): ReactElement {
 
   // Fetch models when API key is valid
   useEffect(() => {
-    if (!isApiKeyValid || !apiKey) {
+    if (isApiKeyValid !== true || apiKey === null || apiKey === '') {
       setModels([])
       return
     }
@@ -77,9 +77,7 @@ export function ApiKeySetup(): ReactElement {
   }, [apiKey, isApiKeyValid])
 
   // Filter models for text and voice (multimodal with audio support)
-  const textModels = models.filter(
-    (m) => !m.id.includes('whisper') && !m.id.includes('tts')
-  )
+  const textModels = models.filter((m) => !m.id.includes('whisper') && !m.id.includes('tts'))
 
   // Voice models are multimodal models that support audio input
   const voiceModels = models.filter((m) => {
@@ -200,7 +198,7 @@ export function ApiKeySetup(): ReactElement {
       </p>
 
       {/* Model Selection */}
-      {isApiKeyValid && (
+      {isApiKeyValid === true && (
         <div className="grid gap-4 sm:grid-cols-2">
           <div>
             <label

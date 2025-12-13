@@ -6,7 +6,7 @@ export type ThoughtDocument = RxDocument<ThoughtDocType>
 export type ThoughtCollection = RxCollection<ThoughtDocType>
 
 export const thoughtSchema: RxJsonSchema<ThoughtDocType> = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -39,7 +39,16 @@ export const thoughtSchema: RxJsonSchema<ThoughtDocType> = {
       type: 'string',
       maxLength: 100,
     },
+    linkedTaskIds: {
+      type: 'array',
+      items: {
+        type: 'string',
+      },
+    },
+    aiProcessed: {
+      type: 'boolean',
+    },
   },
-  required: ['id', 'content', 'tags', 'createdAt', 'updatedAt'],
-  indexes: ['createdAt'],
+  required: ['id', 'content', 'tags', 'createdAt', 'updatedAt', 'linkedTaskIds', 'aiProcessed'],
+  indexes: ['createdAt', 'aiProcessed'],
 }

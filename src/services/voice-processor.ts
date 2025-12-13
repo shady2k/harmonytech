@@ -1,36 +1,8 @@
 import { getOpenRouterClient } from './openrouter'
 import { VOICE_TRANSCRIPTION_PROMPT } from '@/lib/ai-prompts'
 
-export interface VoiceExtractedTask {
-  rawInput: string
-  nextAction: string
-}
-
-export interface VoiceExtractedThought {
-  content: string
-  suggestedTags: string[]
-}
-
 export interface VoiceProcessingResult {
   transcript: string
-  tasks: VoiceExtractedTask[]
-  thoughts: VoiceExtractedThought[]
-}
-
-interface AITaskItem {
-  rawInput?: unknown
-  nextAction?: unknown
-}
-
-interface AIThoughtItem {
-  content?: unknown
-  suggestedTags?: unknown
-}
-
-interface AIVoiceResponse {
-  transcript: string
-  tasks: AITaskItem[]
-  thoughts: AIThoughtItem[]
 }
 
 function blobToBase64(blob: Blob): Promise<string> {
@@ -97,80 +69,6 @@ async function convertToWav(audioBlob: Blob): Promise<Blob> {
   return new Blob([wavBuffer], { type: 'audio/wav' })
 }
 
-function getAudioFormat(mimeType: string): string {
-  if (mimeType.includes('wav')) return 'wav'
-  if (mimeType.includes('mp3') || mimeType.includes('mpeg')) return 'mp3'
-  if (mimeType.includes('ogg')) return 'ogg'
-  if (mimeType.includes('mp4') || mimeType.includes('m4a')) return 'mp4'
-  if (mimeType.includes('aac')) return 'aac'
-  if (mimeType.includes('flac')) return 'flac'
-  if (mimeType.includes('webm')) return 'webm'
-  return 'ogg' // Default to ogg as it's widely supported
-}
-
-const JSON_REGEX = /\{[\s\S]*\}/
-
-function toString(value: unknown, fallback = ''): string {
-  if (typeof value === 'string') return value
-  if (typeof value === 'number') return value.toString()
-  if (typeof value === 'boolean') return value.toString()
-  return fallback
-}
-
-function toStringArray(value: unknown): string[] {
-  if (!Array.isArray(value)) return []
-  return value.map((item) => toString(item))
-}
-
-function parseVoiceResponse(content: string): AIVoiceResponse {
-  const jsonMatch = JSON_REGEX.exec(content)
-  if (jsonMatch === null) {
-    return {
-      transcript: content,
-      tasks: [],
-      thoughts: [],
-    }
-  }
-
-  const parsed = JSON.parse(jsonMatch[0]) as unknown
-
-  if (typeof parsed !== 'object' || parsed === null) {
-    return {
-      transcript: content,
-      tasks: [],
-      thoughts: [],
-    }
-  }
-
-  const response = parsed as Record<string, unknown>
-
-  const transcriptRaw = response['transcript']
-  const tasksRaw = response['tasks']
-  const thoughtsRaw = response['thoughts']
-
-  return {
-    transcript: toString(transcriptRaw, content),
-    tasks: Array.isArray(tasksRaw)
-      ? tasksRaw.map((t: unknown): AITaskItem => {
-          const task = t as Record<string, unknown>
-          return {
-            rawInput: task['rawInput'],
-            nextAction: task['nextAction'],
-          }
-        })
-      : [],
-    thoughts: Array.isArray(thoughtsRaw)
-      ? thoughtsRaw.map((th: unknown): AIThoughtItem => {
-          const thought = th as Record<string, unknown>
-          return {
-            content: thought['content'],
-            suggestedTags: thought['suggestedTags'],
-          }
-        })
-      : [],
-  }
-}
-
 export async function processVoiceRecording(
   audioBlob: Blob,
   apiKey: string,
@@ -195,17 +93,8 @@ export async function processVoiceRecording(
     throw new Error('Empty response from AI')
   }
 
-  const parsed = parseVoiceResponse(content)
-
+  // Return the transcript directly - AI analysis happens in background
   return {
-    transcript: parsed.transcript,
-    tasks: parsed.tasks.map((t) => ({
-      rawInput: toString(t.rawInput),
-      nextAction: toString(t.nextAction),
-    })),
-    thoughts: parsed.thoughts.map((th) => ({
-      content: toString(th.content),
-      suggestedTags: toStringArray(th.suggestedTags),
-    })),
+    transcript: content.trim(),
   }
 }

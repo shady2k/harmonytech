@@ -1,22 +1,9 @@
-Listen to the audio and transcribe it accurately. The user is capturing thoughts, tasks, or ideas for a productivity system.
+Transcribe the audio accurately. The user is capturing thoughts, tasks, or ideas for a productivity system.
 
-After transcription, analyze the content and extract:
-1. Any actionable tasks (things that can be done)
-2. Any thoughts or ideas (reference material, things to remember)
+Return properly formatted text with:
+- Correct capitalization at the start of each sentence
+- Proper punctuation (periods, commas, question marks, exclamation marks)
+- Correct grammar and natural sentence structure
+- Numbers written as digits when appropriate (dates, times, quantities)
 
-Return a JSON object:
-{
-  "transcript": "the full transcription of the audio",
-  "tasks": [
-    {
-      "rawInput": "portion of transcript that is a task",
-      "nextAction": "clear action starting with a verb"
-    }
-  ],
-  "thoughts": [
-    {
-      "content": "portion that is a thought/idea",
-      "suggestedTags": ["relevant", "tags"]
-    }
-  ]
-}
+Return ONLY the transcription text, no JSON. Format it as natural written text, not raw speech.

@@ -1,14 +1,19 @@
 import { create } from 'zustand'
 import type { TaskContext, TaskEnergy } from '@/types/task'
-import type { Settings, Theme } from '@/types/settings'
+import type { AIProviderType, Settings, Theme } from '@/types/settings'
 import type { HarmonyTechDatabase } from '@/lib/database'
 import type { RxDocument } from 'rxdb'
 
 interface SettingsState {
-  // Settings values
-  apiKey: string | null
+  // AI Provider settings
+  aiProvider: AIProviderType
+  apiKey: string | null // OpenRouter API key
+  yandexApiKey: string | null
+  yandexFolderId: string | null
   textModel: string | null
   voiceModel: string | null
+
+  // Other settings
   theme: Theme
   defaultContext: TaskContext
   defaultEnergy: TaskEnergy
@@ -23,9 +28,13 @@ interface SettingsState {
 }
 
 interface SettingsActions {
-  // API Key
+  // AI Provider
+  setAIProvider: (provider: AIProviderType) => void
   setApiKey: (apiKey: string | null) => void
+  setYandexApiKey: (apiKey: string | null) => void
+  setYandexFolderId: (folderId: string | null) => void
   validateApiKey: () => Promise<boolean>
+  getActiveApiKey: () => string | null
 
   // Settings updates
   setTextModel: (model: string | null) => void
@@ -44,7 +53,10 @@ interface SettingsActions {
 }
 
 const initialState: SettingsState = {
+  aiProvider: 'openrouter',
   apiKey: null,
+  yandexApiKey: null,
+  yandexFolderId: null,
   textModel: null,
   voiceModel: null,
   theme: 'system',
@@ -59,14 +71,33 @@ const initialState: SettingsState = {
 export const useSettingsStore = create<SettingsState & SettingsActions>((set, get) => ({
   ...initialState,
 
-  // API Key
+  // AI Provider
+  setAIProvider: (aiProvider): void => {
+    set({ aiProvider, isApiKeyValid: null })
+  },
+
   setApiKey: (apiKey): void => {
     set({ apiKey, isApiKeyValid: null })
   },
 
+  setYandexApiKey: (yandexApiKey): void => {
+    set({ yandexApiKey, isApiKeyValid: null })
+  },
+
+  setYandexFolderId: (yandexFolderId): void => {
+    set({ yandexFolderId })
+  },
+
+  getActiveApiKey: (): string | null => {
+    const { aiProvider, apiKey, yandexApiKey } = get()
+    return aiProvider === 'openrouter' ? apiKey : yandexApiKey
+  },
+
   validateApiKey: async (): Promise<boolean> => {
-    const { apiKey } = get()
-    if (apiKey === null || apiKey === '') {
+    const { aiProvider, apiKey, yandexApiKey, yandexFolderId } = get()
+
+    const activeKey = aiProvider === 'openrouter' ? apiKey : yandexApiKey
+    if (activeKey === null || activeKey === '') {
       set({ isApiKeyValid: false })
       return false
     }
@@ -74,23 +105,30 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
     set({ isValidating: true })
 
     try {
-      // Test the API key with a timeout
-      const controller = new AbortController()
-      const timeoutId = setTimeout(() => {
-        controller.abort()
-      }, 10000) // 10 second timeout
+      if (aiProvider === 'openrouter') {
+        // Test OpenRouter API key
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => {
+          controller.abort()
+        }, 10000)
 
-      const response = await fetch('https://openrouter.ai/api/v1/models', {
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-        },
-        signal: controller.signal,
-      })
+        const response = await fetch('https://openrouter.ai/api/v1/models', {
+          headers: {
+            Authorization: `Bearer ${activeKey}`,
+          },
+          signal: controller.signal,
+        })
 
-      clearTimeout(timeoutId)
-      const isValid = response.ok
-      set({ isApiKeyValid: isValid, isValidating: false })
-      return isValid
+        clearTimeout(timeoutId)
+        const isValid = response.ok
+        set({ isApiKeyValid: isValid, isValidating: false })
+        return isValid
+      } else {
+        // Yandex validation - just check if credentials are provided for now
+        const isValid = !!(yandexApiKey && yandexFolderId)
+        set({ isApiKeyValid: isValid, isValidating: false })
+        return isValid
+      }
     } catch {
       set({ isApiKeyValid: false, isValidating: false })
       return false
@@ -120,7 +158,10 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
       const settingsDoc = await db.settings.findOne('user-settings').exec()
       if (settingsDoc) {
         set({
+          aiProvider: settingsDoc.aiProvider ?? 'openrouter',
           apiKey: settingsDoc.openRouterApiKey ?? null,
+          yandexApiKey: settingsDoc.yandexApiKey ?? null,
+          yandexFolderId: settingsDoc.yandexFolderId ?? null,
           textModel: settingsDoc.textModel ?? null,
           voiceModel: settingsDoc.voiceModel ?? null,
           theme: settingsDoc.theme,
@@ -135,7 +176,17 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   },
 
   syncToDatabase: async (db): Promise<void> => {
-    const { apiKey, textModel, voiceModel, theme, defaultContext, defaultEnergy } = get()
+    const {
+      aiProvider,
+      apiKey,
+      yandexApiKey,
+      yandexFolderId,
+      textModel,
+      voiceModel,
+      theme,
+      defaultContext,
+      defaultEnergy,
+    } = get()
 
     set({ isSyncing: true })
 
@@ -143,7 +194,10 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
       const settingsDoc = await db.settings.findOne('user-settings').exec()
       if (settingsDoc) {
         await settingsDoc.patch({
+          aiProvider,
           openRouterApiKey: apiKey ?? undefined,
+          yandexApiKey: yandexApiKey ?? undefined,
+          yandexFolderId: yandexFolderId ?? undefined,
           textModel: textModel ?? undefined,
           voiceModel: voiceModel ?? undefined,
           theme,
@@ -163,7 +217,10 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
       next: (settingsDoc: RxDocument<Settings> | null): void => {
         if (settingsDoc) {
           set({
+            aiProvider: settingsDoc.aiProvider ?? 'openrouter',
             apiKey: settingsDoc.openRouterApiKey ?? null,
+            yandexApiKey: settingsDoc.yandexApiKey ?? null,
+            yandexFolderId: settingsDoc.yandexFolderId ?? null,
             textModel: settingsDoc.textModel ?? null,
             voiceModel: settingsDoc.voiceModel ?? null,
             theme: settingsDoc.theme,

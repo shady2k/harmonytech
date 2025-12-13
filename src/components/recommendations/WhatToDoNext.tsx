@@ -1,51 +1,43 @@
 import { type ReactElement, useCallback, useState } from 'react'
-import { useRecommendations, type RecommendationContext } from '@/hooks/useRecommendations'
+import { useAutoRecommendations } from '@/hooks/useAutoRecommendations'
 import { useUIStore } from '@/stores/ui.store'
 import { ContextInput } from './ContextInput'
 import { RecommendationCard } from './RecommendationCard'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import type { TaskContext, TaskEnergy } from '@/types/task'
 
 interface WhatToDoNextProps {
   className?: string
 }
 
-type ViewState = 'input' | 'loading' | 'results' | 'error'
-
 export function WhatToDoNext({ className = '' }: WhatToDoNextProps): ReactElement {
-  const { recommendations, alternativeActions, isLoading, error, getRecommendations, clearError } =
-    useRecommendations()
+  const {
+    recommendations,
+    alternativeActions,
+    unprocessedThoughts,
+    recentThoughts,
+    isLoading,
+    error,
+    isAIAvailable,
+    refresh,
+  } = useAutoRecommendations()
   const { selectTask, setActiveView } = useUIStore()
 
-  const [viewState, setViewState] = useState<ViewState>('input')
   const [showAll, setShowAll] = useState(false)
-  const [lastContext, setLastContext] = useState<RecommendationContext | null>(null)
+  const [showRefine, setShowRefine] = useState(false)
 
-  const handleGetRecommendations = useCallback(
-    async (context: RecommendationContext): Promise<void> => {
-      setLastContext(context)
-      setViewState('loading')
-      try {
-        await getRecommendations(context)
-        setViewState('results')
-      } catch {
-        setViewState('error')
-      }
+  const handleRefresh = useCallback(
+    async (context?: {
+      energy?: TaskEnergy
+      timeAvailable?: number
+      location?: TaskContext
+    }): Promise<void> => {
+      await refresh(context)
     },
-    [getRecommendations]
+    [refresh]
   )
-
-  const handleRefresh = useCallback(async (): Promise<void> => {
-    if (lastContext === null) return
-    setViewState('loading')
-    try {
-      await getRecommendations(lastContext)
-      setViewState('results')
-    } catch {
-      setViewState('error')
-    }
-  }, [lastContext, getRecommendations])
 
   const handleStartTask = useCallback(
     (taskId: string): void => {
@@ -64,54 +56,12 @@ export function WhatToDoNext({ className = '' }: WhatToDoNextProps): ReactElemen
     [selectTask, setActiveView]
   )
 
-  const handleReset = useCallback((): void => {
-    setViewState('input')
-    setShowAll(false)
-    clearError()
-  }, [clearError])
-
-  // Input state
-  if (viewState === 'input') {
-    return (
-      <Card className={className}>
-        <div className="space-y-4">
-          <div className="text-center">
-            <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-indigo-100 dark:bg-indigo-900/50">
-              <svg
-                className="h-6 w-6 text-indigo-600 dark:text-indigo-400"
-                fill="none"
-                viewBox="0 0 24 24"
-                stroke="currentColor"
-              >
-                <path
-                  strokeLinecap="round"
-                  strokeLinejoin="round"
-                  strokeWidth={2}
-                  d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
-                />
-              </svg>
-            </div>
-            <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
-              What should I do next?
-            </h3>
-            <p className="mt-1 text-sm text-gray-600 dark:text-gray-400">
-              Tell me about your current situation and I&apos;ll suggest the best task
-            </p>
-          </div>
-
-          <ContextInput
-            onSubmit={(context): void => {
-              void handleGetRecommendations(context)
-            }}
-            isLoading={isLoading}
-          />
-        </div>
-      </Card>
-    )
-  }
+  const handleViewThought = useCallback((): void => {
+    setActiveView('thoughts')
+  }, [setActiveView])
 
   // Loading state
-  if (viewState === 'loading' || isLoading) {
+  if (isLoading) {
     return (
       <Card className={className}>
         <div className="flex flex-col items-center justify-center py-12">
@@ -124,8 +74,89 @@ export function WhatToDoNext({ className = '' }: WhatToDoNextProps): ReactElemen
     )
   }
 
+  // No AI available - show fallback with thoughts and tasks
+  if (!isAIAvailable) {
+    return (
+      <div className={`space-y-4 ${className}`}>
+        <Card>
+          <div className="space-y-4">
+            <div className="text-center">
+              <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-gray-100 dark:bg-gray-800">
+                <svg
+                  className="h-6 w-6 text-gray-400"
+                  fill="none"
+                  viewBox="0 0 24 24"
+                  stroke="currentColor"
+                >
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M9.663 17h4.673M12 3v1m6.364 1.636l-.707.707M21 12h-1M4 12H3m3.343-5.657l-.707-.707m2.828 9.9a5 5 0 117.072 0l-.548.547A3.374 3.374 0 0014 18.469V19a2 2 0 11-4 0v-.531c0-.895-.356-1.754-.988-2.386l-.548-.547z"
+                  />
+                </svg>
+              </div>
+              <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Inbox</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                AI recommendations available when you configure an AI provider in Settings
+              </p>
+            </div>
+          </div>
+        </Card>
+
+        {/* Show unprocessed thoughts */}
+        {unprocessedThoughts.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Recent Thoughts (pending AI processing)
+            </h4>
+            {unprocessedThoughts.map((thought) => (
+              <Card
+                key={thought.id}
+                className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <button className="w-full text-left" onClick={handleViewThought}>
+                  <p className="line-clamp-2 text-sm text-gray-600 dark:text-gray-400">
+                    {thought.content}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    {new Date(thought.createdAt).toLocaleDateString()}
+                  </p>
+                </button>
+              </Card>
+            ))}
+          </div>
+        )}
+
+        {/* Show recent thoughts if no unprocessed ones */}
+        {unprocessedThoughts.length === 0 && recentThoughts.length > 0 && (
+          <div className="space-y-2">
+            <h4 className="text-sm font-medium text-gray-700 dark:text-gray-300">
+              Recent Thoughts
+            </h4>
+            {recentThoughts.slice(0, 3).map((thought) => (
+              <Card
+                key={thought.id}
+                className="cursor-pointer hover:bg-gray-50 dark:hover:bg-gray-800"
+              >
+                <button className="w-full text-left" onClick={handleViewThought}>
+                  <p className="line-clamp-2 text-sm text-gray-600 dark:text-gray-400">
+                    {thought.content}
+                  </p>
+                  <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
+                    {new Date(thought.createdAt).toLocaleDateString()}
+                  </p>
+                </button>
+              </Card>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
+
   // Error state
-  if (viewState === 'error' || error !== null) {
+  if (error !== null) {
     return (
       <Card className={className}>
         <div className="space-y-4 text-center">
@@ -148,22 +179,15 @@ export function WhatToDoNext({ className = '' }: WhatToDoNextProps): ReactElemen
             <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
               Couldn&apos;t get recommendations
             </h3>
-            <p className="mt-1 text-sm text-red-600 dark:text-red-400">
-              {error ?? 'An unexpected error occurred'}
-            </p>
+            <p className="mt-1 text-sm text-red-600 dark:text-red-400">{error}</p>
           </div>
-          <div className="flex justify-center gap-3">
-            <Button variant="ghost" onClick={handleReset}>
-              Change Context
-            </Button>
-            <Button
-              onClick={(): void => {
-                void handleRefresh()
-              }}
-            >
-              Try Again
-            </Button>
-          </div>
+          <Button
+            onClick={(): void => {
+              void handleRefresh()
+            }}
+          >
+            Try Again
+          </Button>
         </div>
       </Card>
     )
@@ -181,8 +205,14 @@ export function WhatToDoNext({ className = '' }: WhatToDoNextProps): ReactElemen
           {recommendations.length > 0 ? 'Recommended Tasks' : 'No Matching Tasks'}
         </h3>
         <div className="flex gap-2">
-          <Button variant="ghost" size="sm" onClick={handleReset}>
-            Change Context
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={(): void => {
+              setShowRefine(!showRefine)
+            }}
+          >
+            Refine
           </Button>
           <Button
             variant="ghost"
@@ -202,6 +232,19 @@ export function WhatToDoNext({ className = '' }: WhatToDoNextProps): ReactElemen
           </Button>
         </div>
       </div>
+
+      {/* Refine context (collapsible) */}
+      {showRefine && (
+        <Card className="bg-gray-50 dark:bg-gray-800/50">
+          <ContextInput
+            onSubmit={(context): void => {
+              void handleRefresh(context)
+              setShowRefine(false)
+            }}
+            isLoading={isLoading}
+          />
+        </Card>
+      )}
 
       {/* Recommendations */}
       {recommendations.length > 0 ? (

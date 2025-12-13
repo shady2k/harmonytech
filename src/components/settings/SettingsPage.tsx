@@ -1,14 +1,28 @@
 import type { ReactElement } from 'react'
 import { Card } from '@/components/ui/Card'
 import { ApiKeySetup } from './ApiKeySetup'
+import { YandexSettings } from './YandexSettings'
 import { SyncSettings } from './SyncSettings'
 import { ThemeToggle } from './ThemeToggle'
+import { useSettingsStore } from '@/stores'
+import { useDatabase } from '@/hooks'
+import type { AIProviderType } from '@/types/settings'
 
 interface SettingsPageProps {
   className?: string
 }
 
 export function SettingsPage({ className = '' }: SettingsPageProps): ReactElement {
+  const { db } = useDatabase()
+  const { aiProvider, setAIProvider, syncToDatabase } = useSettingsStore()
+
+  const handleProviderChange = async (provider: AIProviderType): Promise<void> => {
+    setAIProvider(provider)
+    if (db) {
+      await syncToDatabase(db)
+    }
+  }
+
   return (
     <div className={`space-y-6 ${className}`}>
       {/* Header */}
@@ -41,11 +55,48 @@ export function SettingsPage({ className = '' }: SettingsPageProps): ReactElemen
             <div>
               <h2 className="text-lg font-semibold text-gray-900 dark:text-white">AI Settings</h2>
               <p className="text-sm text-gray-500 dark:text-gray-400">
-                Configure your OpenRouter API key for AI features
+                Configure your AI provider for intelligent features
               </p>
             </div>
           </div>
-          <ApiKeySetup />
+
+          {/* Provider Selection */}
+          <div className="mb-6">
+            <label className="mb-3 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              AI Provider
+            </label>
+            <div className="flex gap-4">
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="ai-provider"
+                  value="openrouter"
+                  checked={aiProvider === 'openrouter'}
+                  onChange={(): void => {
+                    void handleProviderChange('openrouter')
+                  }}
+                  className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">OpenRouter</span>
+              </label>
+              <label className="flex cursor-pointer items-center gap-2">
+                <input
+                  type="radio"
+                  name="ai-provider"
+                  value="yandex"
+                  checked={aiProvider === 'yandex'}
+                  onChange={(): void => {
+                    void handleProviderChange('yandex')
+                  }}
+                  className="h-4 w-4 border-gray-300 text-indigo-600 focus:ring-indigo-500"
+                />
+                <span className="text-sm text-gray-700 dark:text-gray-300">Yandex Cloud</span>
+              </label>
+            </div>
+          </div>
+
+          {/* Provider-specific settings */}
+          {aiProvider === 'openrouter' ? <ApiKeySetup /> : <YandexSettings />}
         </Card>
       </section>
 

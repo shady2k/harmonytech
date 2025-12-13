@@ -1,5 +1,6 @@
 import { useCallback, useEffect, type ReactElement } from 'react'
 import { DatabaseProvider, useDatabaseContext } from '@/contexts/DatabaseContext'
+import { AIStatusProvider } from '@/contexts/AIStatusContext'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useUIStore } from '@/stores/ui.store'
 import { useCaptureStore } from '@/stores'
@@ -11,6 +12,7 @@ import { SettingsPage } from '@/components/settings/SettingsPage'
 import { WhatToDoNext } from '@/components/recommendations/WhatToDoNext'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { useAI } from '@/hooks/useAI'
+import { useBackgroundAI } from '@/hooks/useBackgroundAI'
 
 function AppContent(): ReactElement {
   const { db, isLoading: isDbLoading, error: dbError } = useDatabaseContext()
@@ -24,8 +26,11 @@ function AppContent(): ReactElement {
     setExtractedItems,
     reset: resetCapture,
   } = useCaptureStore()
-  const { apiKey, subscribeToDatabase } = useSettingsStore()
-  const { extractTasks, processVoice, toExtractedItems } = useAI()
+  const { subscribeToDatabase } = useSettingsStore()
+  const { processVoice, isAIAvailable } = useAI()
+
+  // Background AI processor for thought-first capture
+  useBackgroundAI()
 
   // Load and subscribe to settings from database
   useEffect(() => {
@@ -35,92 +40,41 @@ function AppContent(): ReactElement {
   }, [db, subscribeToDatabase])
 
   // Process text when processingState changes to 'extracting'
+  // Thought-first: always create a thought, AI processes in background
   useEffect(() => {
     if (processingState !== 'extracting' || inputText.trim() === '') {
       return
     }
 
-    const processText = async (): Promise<void> => {
-      // If no API key, create based on current view
-      if (!apiKey) {
-        if (activeView === 'thoughts') {
-          // Create a thought
-          setExtractedItems({
-            tasks: [],
-            thoughts: [{ content: inputText, tags: [] }],
-          })
-        } else {
-          // Create a task
-          setExtractedItems({
-            tasks: [
-              {
-                rawInput: inputText,
-                nextAction: inputText,
-                suggestions: {
-                  suggestedContext: 'anywhere',
-                  suggestedEnergy: 'medium',
-                  suggestedTimeEstimate: 15,
-                  confidence: 0.5,
-                },
-              },
-            ],
-            thoughts: [],
-          })
-        }
-        setProcessingState('done')
-        return
-      }
-
-      // With API key, use AI extraction
-      try {
-        const result = await extractTasks(inputText)
-        setProcessingState('suggesting')
-        const items = await toExtractedItems(result)
-        setExtractedItems(items)
-        setProcessingState('done')
-      } catch {
-        // Fallback based on current view
-        if (activeView === 'thoughts') {
-          setExtractedItems({
-            tasks: [],
-            thoughts: [{ content: inputText, tags: [] }],
-          })
-        } else {
-          setExtractedItems({
-            tasks: [
-              {
-                rawInput: inputText,
-                nextAction: inputText,
-                suggestions: {
-                  suggestedContext: 'anywhere',
-                  suggestedEnergy: 'medium',
-                  suggestedTimeEstimate: 15,
-                  confidence: 0.5,
-                },
-              },
-            ],
-            thoughts: [],
-          })
-        }
-        setProcessingState('done')
-      }
-    }
-
-    void processText()
-  }, [processingState, inputText, apiKey, activeView, extractTasks, toExtractedItems, setExtractedItems, setProcessingState])
+    // Always create a thought first - AI will process it in the background
+    setExtractedItems({
+      tasks: [],
+      thoughts: [{ content: inputText, tags: [] }],
+    })
+    setProcessingState('done')
+  }, [processingState, inputText, setExtractedItems, setProcessingState])
 
   // Process voice when processingState changes to 'transcribing'
+  // Thought-first: transcribe and create thought, AI extracts tasks in background
   useEffect(() => {
     if (processingState !== 'transcribing' || audioBlob === null) {
       return
     }
 
     const processAudio = async (): Promise<void> => {
-      // Voice requires API key
-      if (!apiKey) {
+      // Voice requires AI for transcription
+      if (!isAIAvailable) {
+        // Save a placeholder thought - the actual audio cannot be stored without AI transcription
+        // User is informed they need to configure AI for voice capture
         setExtractedItems({
           tasks: [],
-          thoughts: [{ content: 'Voice processing requires an API key. Please add one in Settings.', tags: [] }],
+          thoughts: [
+            {
+              content:
+                '[Voice recording] Unable to transcribe - AI provider not configured. Please configure an AI provider in Settings for voice capture.',
+              tags: ['voice-pending'],
+            },
+          ],
         })
         setProcessingState('done')
         return
@@ -128,9 +82,11 @@ function AppContent(): ReactElement {
 
       try {
         const result = await processVoice(audioBlob)
-        setProcessingState('suggesting')
-        const items = await toExtractedItems(result)
-        setExtractedItems(items)
+        // Create a thought from the transcript - AI will extract tasks in background
+        setExtractedItems({
+          tasks: [],
+          thoughts: [{ content: result.transcript, tags: [] }],
+        })
         setProcessingState('done')
       } catch (err) {
         // Show error as a thought
@@ -144,7 +100,14 @@ function AppContent(): ReactElement {
     }
 
     void processAudio()
-  }, [processingState, audioBlob, apiKey, processVoice, toExtractedItems, setExtractedItems, setProcessingState])
+  }, [
+    processingState,
+    audioBlob,
+    isAIAvailable,
+    processVoice,
+    setExtractedItems,
+    setProcessingState,
+  ])
 
   const handleSave = useCallback(async (): Promise<void> => {
     if (db === null || extractedItems === null) {
@@ -156,12 +119,12 @@ function AppContent(): ReactElement {
     // Save tasks
     for (const task of extractedItems.tasks) {
       await db.tasks.insert({
-        id: `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        id: `task-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`,
         rawInput: task.rawInput,
         nextAction: task.nextAction,
         context: task.suggestions.suggestedContext ?? 'anywhere',
         energy: task.suggestions.suggestedEnergy ?? 'medium',
-        timeEstimate: task.suggestions.suggestedTimeEstimate,
+        timeEstimate: task.suggestions.suggestedTimeEstimate ?? 15,
         project: task.suggestions.suggestedProject,
         isSomedayMaybe: false,
         isCompleted: false,
@@ -170,12 +133,14 @@ function AppContent(): ReactElement {
       })
     }
 
-    // Save thoughts
+    // Save thoughts with aiProcessed=false so background AI can process them
     for (const thought of extractedItems.thoughts) {
       await db.thoughts.insert({
-        id: `thought-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`,
+        id: `thought-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`,
         content: thought.content,
         tags: thought.tags,
+        linkedTaskIds: [],
+        aiProcessed: false,
         createdAt: now,
         updatedAt: now,
       })
@@ -207,7 +172,9 @@ function AppContent(): ReactElement {
           <h1 className="text-xl font-bold text-red-600">Database Error</h1>
           <p className="mt-2 text-gray-600 dark:text-gray-400">{dbError.message}</p>
           <button
-            onClick={(): void => window.location.reload()}
+            onClick={(): void => {
+              window.location.reload()
+            }}
             className="mt-4 rounded-lg bg-indigo-600 px-4 py-2 text-white hover:bg-indigo-700"
           >
             Reload
@@ -264,11 +231,7 @@ function AppContent(): ReactElement {
 
   return (
     <>
-      <AppLayout
-        activeView={activeView}
-        onViewChange={setActiveView}
-        onCaptureClick={openCapture}
-      >
+      <AppLayout activeView={activeView} onViewChange={setActiveView} onCaptureClick={openCapture}>
         {renderView()}
       </AppLayout>
 
@@ -286,7 +249,9 @@ function AppContent(): ReactElement {
 function App(): ReactElement {
   return (
     <DatabaseProvider>
-      <AppContent />
+      <AIStatusProvider>
+        <AppContent />
+      </AIStatusProvider>
     </DatabaseProvider>
   )
 }
