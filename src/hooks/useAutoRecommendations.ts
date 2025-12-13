@@ -7,7 +7,8 @@ import { useState, useCallback, useEffect, useRef } from 'react'
 import { useSettingsStore } from '@/stores'
 import { useTasks } from './useTasks'
 import { useThoughts } from './useThoughts'
-import { getOpenRouterClient } from '@/services/openrouter'
+import { useAIStatus } from './useAIStatus'
+import { aiService } from '@/services/ai'
 import { WHAT_TO_DO_NEXT_PROMPT } from '@/lib/ai-prompts'
 import type { Task, TaskContext, TaskEnergy } from '@/types/task'
 import type { Thought } from '@/types/thought'
@@ -98,22 +99,16 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { apiKey, textModel, aiProvider } = useSettingsStore()
+  const { textModel } = useSettingsStore()
   const { tasks } = useTasks()
   const { thoughts } = useThoughts()
+  const { isAIAvailable } = useAIStatus()
 
   const cacheRef = useRef<{
     timestamp: number
     recommendations: Recommendation[]
     alternativeActions: string[]
   } | null>(null)
-
-  const isAIAvailable =
-    apiKey !== null &&
-    apiKey !== '' &&
-    textModel !== null &&
-    textModel !== '' &&
-    aiProvider === 'openrouter'
 
   // Get unprocessed and recent thoughts for fallback UI
   const unprocessedThoughts = thoughts.filter((t) => !t.aiProcessed).slice(0, 5)
@@ -132,7 +127,7 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
       const timeAvailable = context?.timeAvailable ?? 30 // Default 30 minutes
       const location = context?.location ?? 'anywhere' // Default anywhere
 
-      if (apiKey === null || apiKey === '' || textModel === null || textModel === '') {
+      if (!isAIAvailable || textModel === null || textModel === '') {
         setError(null) // Not an error, just not available
         return
       }
@@ -150,15 +145,13 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
       setError(null)
 
       try {
-        const client = getOpenRouterClient(apiKey)
-
         // Build the prompt with context
         const prompt = WHAT_TO_DO_NEXT_PROMPT.replace('{timeAvailable}', String(timeAvailable))
           .replace('{energyLevel}', energy)
           .replace('{context}', location)
           .replace('{tasks}', formatTasksForPrompt(incompleteTasks))
 
-        const response = await client.chat(
+        const response = await aiService.chat(
           [
             {
               role: 'user',
@@ -168,10 +161,10 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
           textModel
         )
 
-        if (response.choices.length === 0) {
-          throw new Error('Empty response from AI')
+        if (response === null) {
+          throw new Error('AI service not available')
         }
-        const content = response.choices[0].message.content
+        const content = response.content
         if (content === '') {
           throw new Error('Empty response from AI')
         }
@@ -214,7 +207,7 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
         setIsLoading(false)
       }
     },
-    [apiKey, textModel, tasks]
+    [isAIAvailable, textModel, tasks]
   )
 
   // Auto-fetch on mount if AI is available

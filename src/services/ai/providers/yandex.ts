@@ -78,7 +78,7 @@ export class YandexProvider implements AIProvider {
   readonly type = 'yandex' as const
   private apiKey: string
   private folderId: string
-  private available = false
+  private available = true
 
   constructor(config: AIProviderConfig) {
     this.apiKey = config.apiKey
@@ -120,9 +120,11 @@ export class YandexProvider implements AIProvider {
 
     if (!response.ok) {
       const errorText = await response.text()
+      this.available = false
       throw new Error(`YandexGPT API error: ${String(response.status)} - ${errorText}`)
     }
 
+    this.available = true
     const data = (await response.json()) as YandexGPTResponse
     log.debug('Raw response:', JSON.stringify(data))
     const result = data.result

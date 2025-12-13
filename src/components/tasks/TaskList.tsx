@@ -7,6 +7,7 @@ import { TaskDetail } from './TaskDetail'
 import { TaskFilters } from './TaskFilters'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { SlideOverPanel } from '@/components/ui/SlideOverPanel'
 
 interface TaskListProps {
   groupByProject?: boolean
@@ -212,19 +213,17 @@ export function TaskList({
         </div>
       )}
 
-      {/* Task detail panel */}
-      {selectedTask !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 md:static md:w-96 md:bg-transparent md:p-0">
-          <div className="h-full max-h-[90vh] w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-xl dark:bg-gray-900 md:max-h-full md:max-w-none md:rounded-none md:border-l md:border-gray-200 md:shadow-none md:dark:border-gray-700">
-            <TaskDetail
-              task={selectedTask}
-              onUpdate={handleUpdate}
-              onDelete={handleDelete}
-              onClose={clearSelection}
-            />
-          </div>
-        </div>
-      )}
+      {/* Task detail slide-over panel */}
+      <SlideOverPanel isOpen={selectedTask !== null} onClose={clearSelection} width={480}>
+        {selectedTask !== null && (
+          <TaskDetail
+            task={selectedTask}
+            onUpdate={handleUpdate}
+            onDelete={handleDelete}
+            onClose={clearSelection}
+          />
+        )}
+      </SlideOverPanel>
     </div>
   )
 }
