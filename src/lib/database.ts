@@ -65,7 +65,46 @@ export async function getDatabase(): Promise<HarmonyTechDatabase> {
   return dbPromise
 }
 
+// Clear corrupted database (used for recovery from migration errors)
+async function clearDatabase(): Promise<void> {
+  const databases = await indexedDB.databases()
+  const harmonyDbs = databases.filter(
+    (db): db is IDBDatabaseInfo & { name: string } => db.name?.startsWith('harmonytech') === true
+  )
+  await Promise.all(
+    harmonyDbs.map(
+      (db) =>
+        new Promise<void>((resolve, reject) => {
+          const request = indexedDB.deleteDatabase(db.name)
+          request.onsuccess = (): void => {
+            resolve()
+          }
+          request.onerror = (): void => {
+            reject(new Error(`Failed to delete database: ${db.name}`))
+          }
+        })
+    )
+  )
+}
+
 async function createDatabase(): Promise<HarmonyTechDatabase> {
+  try {
+    return await createDatabaseInternal()
+  } catch (error) {
+    // Handle corrupted database state (e.g., "more than one old collection meta found")
+    const errorMessage = error instanceof Error ? error.message : String(error)
+    if (
+      errorMessage.includes('more than one old collection') ||
+      errorMessage.includes('migration')
+    ) {
+      await clearDatabase()
+      return await createDatabaseInternal()
+    }
+    throw error
+  }
+}
+
+async function createDatabaseInternal(): Promise<HarmonyTechDatabase> {
   const db = await createRxDatabase<DatabaseCollections>({
     name: 'harmonytech',
     storage: getStorage(),
