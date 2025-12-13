@@ -1,475 +1,298 @@
 # Implementation Plan
 
 **Project**: HarmonyTech
-**Generated**: 2025-12-12T23:15:00Z
+**Generated**: 2025-12-13T14:30:00Z
+**PRD Version**: Refined 2025-12-13 (Major Architecture Changes)
 
 ## Technical Context & Standards
 
-*Greenfield Project - Establishing Patterns*
+*Existing Codebase - Refactoring Required*
 
-- **Framework**: React 18+ with Vite
-- **Language**: TypeScript (strict mode)
-- **Styling**: Tailwind CSS (utility-first)
-- **UI State**: Zustand (stores in `/src/stores/`)
-- **Database**: RxDB with IndexedDB adapter
-- **P2P Sync**: Yjs + WebRTC
-- **AI**: OpenRouter API (BYOK)
-- **Voice**: Gemini via OpenRouter (audio input)
-- **PWA**: vite-plugin-pwa
+- **Framework**: React 19 + Vite 7
+- **Styling**: Tailwind CSS 4.x (utility classes, dark mode via `dark:`)
+- **State**: Zustand (stores in `/src/stores/`)
+- **Database**: RxDB (IndexedDB) in `/src/lib/database.ts`
+- **Hooks**: Custom hooks in `/src/hooks/` (useAI, useTasks, etc.)
+- **Services**: Business logic in `/src/services/`
+- **Types**: TypeScript interfaces in `/src/types/`
+- **Prompts**: AI prompts as `.txt` in `/src/lib/prompts/`
+- **Conventions**: kebab-case files, PascalCase components, camelCase functions
 
-**Conventions**:
-- File naming: `kebab-case.ts` for utilities, `PascalCase.tsx` for components
-- Components in `/src/components/` grouped by feature
-- Hooks in `/src/hooks/`
-- Types in `/src/types/`
-- Services in `/src/services/`
-- Stores in `/src/stores/`
-
----
-
-## Phase 1: Project Setup & Foundation
-
-- [x] **Initialize Vite + React + TypeScript project**
-  Task ID: phase-1-setup-01
-  > **Implementation**: Run `npm create vite@latest . -- --template react-ts` in project root.
-  > **Details**: After init, update `tsconfig.json` to enable strict mode. Set up path aliases (`@/` → `src/`).
-
-- [x] **Configure ESLint with strict TypeScript rules**
-  Task ID: phase-1-setup-02
-  > **Implementation**: Install ESLint + TypeScript ESLint plugin, create `eslint.config.js`.
-  > **Details**: Enable strict rules: no `any` type (`@typescript-eslint/no-explicit-any`: error), strict null checks, no unused vars, consistent return types. Configure for React hooks.
-
-- [x] **Configure Tailwind CSS**
-  Task ID: phase-1-setup-03
-  > **Implementation**: Install and configure Tailwind in `tailwind.config.js` and `src/index.css`.
-  > **Details**: Run `npm install -D tailwindcss postcss autoprefixer && npx tailwindcss init -p`. Add Tailwind directives to `src/index.css`. Configure content paths.
-
-- [x] **Set up PWA with vite-plugin-pwa**
-  Task ID: phase-1-setup-04
-  > **Implementation**: Install `vite-plugin-pwa` and configure in `vite.config.ts`.
-  > **Details**: `npm install -D vite-plugin-pwa`. Configure manifest (name: "HarmonyTech", theme_color, icons). Enable service worker with `registerType: 'autoUpdate'`.
-
-- [x] **Create project folder structure**
-  Task ID: phase-1-setup-05
-  > **Implementation**: Create directories: `src/components/`, `src/hooks/`, `src/services/`, `src/stores/`, `src/types/`, `src/utils/`, `src/lib/`.
-  > **Details**: Also create `src/components/ui/` for base components, `src/components/capture/`, `src/components/tasks/`, `src/components/thoughts/`, `src/components/layout/`.
-
-- [x] **Set up base layout component**
-  Task ID: phase-1-setup-06
-  > **Implementation**: Create `src/components/layout/AppLayout.tsx` and `src/components/layout/MobileNav.tsx`.
-  > **Details**: Responsive layout: mobile = bottom nav + full-screen content; desktop = sidebar + main area. Use Tailwind responsive classes (`md:`, `lg:`).
-
-- [x] **Create basic UI primitives**
-  Task ID: phase-1-setup-07
-  > **Implementation**: Create `src/components/ui/Button.tsx`, `src/components/ui/Input.tsx`, `src/components/ui/Card.tsx`, `src/components/ui/Badge.tsx`.
-  > **Details**: Style with Tailwind. Export variants (primary, secondary, ghost for Button). These are the building blocks for the app.
+**Key Changes from PRD Refinement:**
+1. AI is now optional (background enhancement)
+2. Capture creates thoughts first, AI extracts tasks
+3. No user approval needed for AI decisions
+4. Inbox shows recommendations automatically
+5. Multi-provider support (OpenRouter + Yandex)
+6. Enhanced keyboard navigation
 
 ---
 
-## Phase 2: Database Layer (RxDB)
+## Phase 1: AI Provider Abstraction Layer
 
-- [x] **Install and configure RxDB**
-  Task ID: phase-2-database-01
-  > **Implementation**: Install RxDB and create `src/lib/database.ts`.
-  > **Details**: `npm install rxdb rxdb/plugin-storage-dexie`. Initialize database with Dexie storage adapter. Export `getDatabase()` singleton function.
+- [ ] **Create AI Provider Interface**
+  Task ID: phase-1-ai-abstraction-01
+  > **Implementation**: Create `/src/services/ai/types.ts`
+  > **Details**: Define `AIProvider` interface with methods: `chat()`, `chatWithAudio()`, `validateKey()`, `isAvailable()`. Define `AIProviderConfig`, `ChatMessage`, `ChatResponse` types. Export `ProviderType = 'openrouter' | 'yandex'`.
 
-- [x] **Define Task schema**
-  Task ID: phase-2-database-02
-  > **Implementation**: Create `src/types/task.ts` and `src/lib/schemas/task.schema.ts`.
-  > **Details**: Task fields: `id`, `rawInput`, `nextAction`, `context` (enum: computer, phone, errands, home, anywhere), `energy` (enum: high, medium, low), `timeEstimate` (minutes), `deadline` (optional ISO date), `project` (optional string), `isSomedayMaybe` (boolean), `isCompleted`, `completedAt`, `createdAt`, `updatedAt`, `aiSuggestions` (JSON), `recurrence` (optional object).
+- [ ] **Create Base AI Service**
+  Task ID: phase-1-ai-abstraction-02
+  > **Implementation**: Create `/src/services/ai/ai-service.ts`
+  > **Details**: Create `AIService` class that manages provider instances. Methods: `setProvider()`, `getProvider()`, `isAvailable()`, `chat()`, `chatWithAudio()`. Handle graceful fallback when no provider available.
 
-- [x] **Define Thought schema**
-  Task ID: phase-2-database-03
-  > **Implementation**: Create `src/types/thought.ts` and `src/lib/schemas/thought.schema.ts`.
-  > **Details**: Thought fields: `id`, `content`, `tags` (string[]), `linkedProject` (optional), `createdAt`, `updatedAt`, `sourceRecordingId` (optional, for voice).
+- [ ] **Refactor OpenRouter as Provider**
+  Task ID: phase-1-ai-abstraction-03
+  > **Implementation**: Move `/src/services/openrouter.ts` to `/src/services/ai/providers/openrouter.ts`
+  > **Details**: Implement `AIProvider` interface. Keep existing logic. Export `OpenRouterProvider` class. Update imports in dependent files.
 
-- [x] **Define VoiceRecording schema**
-  Task ID: phase-2-database-04
-  > **Implementation**: Create `src/types/voice-recording.ts` and `src/lib/schemas/voice-recording.schema.ts`.
-  > **Details**: Fields: `id`, `audioBlob` (attachment), `transcript`, `processedAt`, `extractedTaskIds` (string[]), `extractedThoughtIds` (string[]), `createdAt`.
+- [ ] **Create Yandex Provider Stub**
+  Task ID: phase-1-ai-abstraction-04
+  > **Implementation**: Create `/src/services/ai/providers/yandex.ts`
+  > **Details**: Implement `AIProvider` interface with placeholder methods. Add `YandexProvider` class with `chat()`, `chatWithAudio()` (for Yandex SpeechKit), `validateKey()`. Mark methods as TODO for future implementation.
 
-- [x] **Define Project schema**
-  Task ID: phase-2-database-05
-  > **Implementation**: Create `src/types/project.ts` and `src/lib/schemas/project.schema.ts`.
-  > **Details**: Fields: `id`, `name`, `description`, `isActive`, `createdAt`, `updatedAt`.
+- [ ] **Create Provider Factory**
+  Task ID: phase-1-ai-abstraction-05
+  > **Implementation**: Create `/src/services/ai/index.ts`
+  > **Details**: Export `createProvider(type: ProviderType, config)` factory. Export `aiService` singleton instance. Re-export types and providers.
 
-- [x] **Define Settings schema**
-  Task ID: phase-2-database-06
-  > **Implementation**: Create `src/types/settings.ts` and `src/lib/schemas/settings.schema.ts`.
-  > **Details**: Fields: `id` (always "user-settings"), `openRouterApiKey` (encrypted string), `preferredModel`, `theme`, `defaultContext`, `defaultEnergy`.
+- [ ] **Update Settings Type for Multi-Provider**
+  Task ID: phase-1-ai-abstraction-06
+  > **Implementation**: Edit `/src/types/settings.ts`
+  > **Details**: Add `aiProvider: 'openrouter' | 'yandex'`. Add `yandexApiKey?: string`. Add `yandexFolderId?: string`. Keep existing OpenRouter fields.
 
-- [x] **Create database service with collections**
-  Task ID: phase-2-database-07
-  > **Implementation**: Update `src/lib/database.ts` to register all schemas and export typed collections.
-  > **Details**: Create `initDatabase()` that adds all collections. Export `db.tasks`, `db.thoughts`, `db.voiceRecordings`, `db.projects`, `db.settings`. Add methods for common operations.
+- [ ] **Update Settings Store for Providers**
+  Task ID: phase-1-ai-abstraction-07
+  > **Implementation**: Edit `/src/stores/settings.store.ts`
+  > **Details**: Add `aiProvider`, `yandexApiKey`, `yandexFolderId` to state. Add setters. Update `syncToDatabase` and `loadFromDatabase`. Add `getActiveProvider()` method.
 
-- [x] **Create React context for database**
-  Task ID: phase-2-database-08
-  > **Implementation**: Create `src/contexts/DatabaseContext.tsx` and `src/hooks/useDatabase.ts`.
-  > **Details**: Provider initializes database on mount, exposes via context. Hook provides typed access. Handle loading state.
-
----
-
-## Phase 3: State Management (Zustand)
-
-- [x] **Create UI state store**
-  Task ID: phase-3-state-01
-  > **Implementation**: Create `src/stores/ui.store.ts`.
-  > **Details**: State: `activeView` (inbox, tasks, thoughts, settings), `isCaptureOpen`, `isProcessing`, `selectedTaskId`, `filters` (context, energy, project, showCompleted). Actions for each.
-
-- [x] **Create settings store**
-  Task ID: phase-3-state-02
-  > **Implementation**: Create `src/stores/settings.store.ts`.
-  > **Details**: Syncs with RxDB settings collection. State: `apiKey`, `preferredModel`, `theme`, `isApiKeyValid`. Actions: `setApiKey`, `validateApiKey`, `updateSettings`.
-
-- [x] **Create capture store**
-  Task ID: phase-3-state-03
-  > **Implementation**: Create `src/stores/capture.store.ts`.
-  > **Details**: State: `inputText`, `isRecording`, `recordingDuration`, `audioBlob`, `processingState` (idle, recording, transcribing, extracting, suggesting, done), `extractedItems`, `currentSuggestions`. Actions for capture flow.
+- [ ] **Update useAI Hook for Abstraction**
+  Task ID: phase-1-ai-abstraction-08
+  > **Implementation**: Edit `/src/hooks/useAI.ts`
+  > **Details**: Import from `/src/services/ai`. Use `aiService` instead of direct OpenRouter. Add `isAIAvailable` boolean. Handle graceful degradation when AI unavailable.
 
 ---
 
-## Phase 4: Core UI Components
+## Phase 2: Thought-First Capture Flow
 
-- [x] **Create Header component**
-  Task ID: phase-4-ui-01
-  > **Implementation**: Create `src/components/layout/Header.tsx`.
-  > **Details**: Shows app title, current view name, settings icon. On mobile: hamburger menu. On desktop: minimal.
+- [ ] **Add sourceThoughtId to Task Type**
+  Task ID: phase-2-thought-first-01
+  > **Implementation**: Edit `/src/types/task.ts`
+  > **Details**: Add `sourceThoughtId?: string` to `Task` interface. This links tasks back to their source thought.
 
-- [x] **Create BottomNav component (mobile)**
-  Task ID: phase-4-ui-02
-  > **Implementation**: Create `src/components/layout/BottomNav.tsx`.
-  > **Details**: Fixed bottom bar with icons: Inbox, Tasks, Thoughts, Settings. Center FAB for capture. Uses `ui.store` for active view.
+- [ ] **Add linkedTaskIds to Thought Type**
+  Task ID: phase-2-thought-first-02
+  > **Implementation**: Edit `/src/types/thought.ts`
+  > **Details**: Add `linkedTaskIds: string[]` to `Thought` interface. Add `aiProcessed: boolean` to track if AI has analyzed this thought.
 
-- [x] **Create Sidebar component (desktop)**
-  Task ID: phase-4-ui-03
-  > **Implementation**: Create `src/components/layout/Sidebar.tsx`.
-  > **Details**: Left sidebar with navigation, project list, filters. Collapsible. Prominent capture button at top.
+- [ ] **Update RxDB Schemas**
+  Task ID: phase-2-thought-first-03
+  > **Implementation**: Edit `/src/lib/schemas/task.schema.ts` and `/src/lib/schemas/thought.schema.ts`
+  > **Details**: Add `sourceThoughtId` to task schema. Add `linkedTaskIds` and `aiProcessed` to thought schema. Ensure indexes for queries.
 
-- [x] **Create CaptureButton (FAB)**
-  Task ID: phase-4-ui-04
-  > **Implementation**: Create `src/components/capture/CaptureButton.tsx`.
-  > **Details**: Floating action button. Tap = open text capture. Long press = start voice recording. Animated microphone icon during recording.
+- [ ] **Refactor Capture Flow - Always Create Thought**
+  Task ID: phase-2-thought-first-04
+  > **Implementation**: Edit `/src/App.tsx` (processText and processAudio effects)
+  > **Details**: Change flow: always create thought first. Remove immediate task creation. Set `aiProcessed: false`. If AI unavailable, still save thought and show success.
 
-- [x] **Create EmptyState component**
-  Task ID: phase-4-ui-05
-  > **Implementation**: Create `src/components/ui/EmptyState.tsx`.
-  > **Details**: Reusable empty state with icon, title, description, optional action button. Used when no tasks/thoughts exist.
+- [ ] **Create Background AI Processor Hook**
+  Task ID: phase-2-thought-first-05
+  > **Implementation**: Create `/src/hooks/useBackgroundAI.ts`
+  > **Details**: Create hook that watches for thoughts with `aiProcessed: false`. When found and AI available, process thought in background. Extract tasks, link them to thought, set `aiProcessed: true`. Use `useTasks` and `useThoughts` hooks.
 
-- [x] **Create LoadingSpinner component**
-  Task ID: phase-4-ui-06
-  > **Implementation**: Create `src/components/ui/LoadingSpinner.tsx`.
-  > **Details**: Simple spinner for loading states. Variants: inline, fullscreen, button.
+- [ ] **Integrate Background AI into App**
+  Task ID: phase-2-thought-first-06
+  > **Implementation**: Edit `/src/App.tsx`
+  > **Details**: Add `useBackgroundAI()` hook call in `AppContent`. It runs silently, no UI needed.
 
----
+- [ ] **Update Capture Modal for Thought-First**
+  Task ID: phase-2-thought-first-07
+  > **Implementation**: Edit `/src/components/capture/CaptureModal.tsx`
+  > **Details**: Simplify UI - remove task/thought distinction. Just "Capture". Single save creates thought. Remove extraction preview for immediate save.
 
-## Phase 5: Capture Flow
-
-- [x] **Create CaptureModal component**
-  Task ID: phase-5-capture-01
-  > **Implementation**: Create `src/components/capture/CaptureModal.tsx`.
-  > **Details**: Full-screen modal on mobile, centered modal on desktop. Contains text input area, voice recording controls, submit button. Shows processing states.
-
-- [x] **Create TextCapture component**
-  Task ID: phase-5-capture-02
-  > **Implementation**: Create `src/components/capture/TextCapture.tsx`.
-  > **Details**: Auto-expanding textarea. Placeholder: "What's on your mind?". Submit on Cmd/Ctrl+Enter. No required fields.
-
-- [x] **Create VoiceCapture component**
-  Task ID: phase-5-capture-03
-  > **Implementation**: Create `src/components/capture/VoiceCapture.tsx`.
-  > **Details**: Uses MediaRecorder API. Shows recording indicator, duration timer, waveform visualization (optional). Stop button. Stores blob in state.
-
-- [x] **Create useVoiceRecording hook**
-  Task ID: phase-5-capture-04
-  > **Implementation**: Create `src/hooks/useVoiceRecording.ts`.
-  > **Details**: Handles MediaRecorder lifecycle. Returns: `startRecording`, `stopRecording`, `isRecording`, `duration`, `audioBlob`, `error`. Request microphone permission.
-
-- [x] **Create ProcessingIndicator component**
-  Task ID: phase-5-capture-05
-  > **Implementation**: Create `src/components/capture/ProcessingIndicator.tsx`.
-  > **Details**: Shows current processing step: "Recording...", "Transcribing...", "Extracting tasks...", "Suggesting properties...". Animated progress.
-
-- [x] **Create SuggestionReview component**
-  Task ID: phase-5-capture-06
-  > **Implementation**: Create `src/components/capture/SuggestionReview.tsx`.
-  > **Details**: After AI processing, shows extracted items with AI suggestions. User can accept/modify each property. "Save" and "Edit more" buttons.
-
-- [x] **Create PropertySuggestion component**
-  Task ID: phase-5-capture-07
-  > **Implementation**: Create `src/components/capture/PropertySuggestion.tsx`.
-  > **Details**: Single property row: label, AI-suggested value (highlighted), alternative options as chips, custom input option. Tap chip to select.
+- [ ] **Remove AI Approval Steps**
+  Task ID: phase-2-thought-first-08
+  > **Implementation**: Edit `/src/stores/capture.store.ts`
+  > **Details**: Remove `currentSuggestions`, `acceptSuggestion`, suggestion-related state. Simplify to just input and processing state.
 
 ---
 
-## Phase 6: AI Integration (OpenRouter)
+## Phase 3: Voice Transcription Quality
 
-- [x] **Create OpenRouter client service**
-  Task ID: phase-6-ai-01
-  > **Implementation**: Create `src/services/openrouter.ts`.
-  > **Details**: Class with methods: `chat(messages, model)`, `chatWithAudio(audioBase64, prompt, model)`. Uses fetch. Handles errors. Reads API key from settings store.
+- [ ] **Update Voice Transcription Prompt**
+  Task ID: phase-3-voice-quality-01
+  > **Implementation**: Edit `/src/lib/prompts/voice-transcription.txt`
+  > **Details**: Add formatting requirements: "Return transcription with proper grammar, capitalization at sentence start, and punctuation (periods, commas, question marks). Format as natural written text, not raw speech."
 
-- [x] **Create AI prompts configuration**
-  Task ID: phase-6-ai-02
-  > **Implementation**: Create `src/lib/ai-prompts.ts`.
-  > **Details**: Export prompt templates: `TASK_EXTRACTION_PROMPT`, `PROPERTY_SUGGESTION_PROMPT`, `WHAT_TO_DO_NEXT_PROMPT`. Structured to return JSON.
+- [ ] **Simplify Voice Processing Result**
+  Task ID: phase-3-voice-quality-02
+  > **Implementation**: Edit `/src/services/voice-processor.ts`
+  > **Details**: Change to return just `transcript` string (formatted). Remove immediate task/thought extraction from voice processor. AI analysis happens in background after thought is saved.
 
-- [x] **Create task extraction service**
-  Task ID: phase-6-ai-03
-  > **Implementation**: Create `src/services/task-extractor.ts`.
-  > **Details**: `extractFromText(text): Promise<ExtractionResult>` - calls OpenRouter, parses response, returns `{ tasks: [], thoughts: [], isActionable: boolean }`.
-
-- [x] **Create voice processing service**
-  Task ID: phase-6-ai-04
-  > **Implementation**: Create `src/services/voice-processor.ts`.
-  > **Details**: `processVoiceRecording(audioBlob): Promise<VoiceProcessingResult>`. Converts blob to base64, sends to Gemini via OpenRouter with audio input, returns transcript + extracted items.
-
-- [x] **Create property suggester service**
-  Task ID: phase-6-ai-05
-  > **Implementation**: Create `src/services/property-suggester.ts`.
-  > **Details**: `suggestProperties(taskText, existingProjects): Promise<PropertySuggestions>`. Returns suggestions for all GTD properties with confidence scores and alternatives.
-
-- [x] **Create useAI hook**
-  Task ID: phase-6-ai-06
-  > **Implementation**: Create `src/hooks/useAI.ts`.
-  > **Details**: Combines all AI services. Returns: `extractTasks`, `processVoice`, `suggestProperties`, `getRecommendation`, `isProcessing`, `error`. Handles API key validation.
-
-- [x] **Create API key setup component**
-  Task ID: phase-6-ai-07
-  > **Implementation**: Create `src/components/settings/ApiKeySetup.tsx`.
-  > **Details**: Input for OpenRouter API key. "Test connection" button. Shows validation status. Saves to settings store (encrypted in RxDB).
+- [ ] **Update Voice Prompt for Single Output**
+  Task ID: phase-3-voice-quality-03
+  > **Implementation**: Edit `/src/lib/prompts/voice-transcription.txt`
+  > **Details**: Simplify prompt: "Transcribe the audio accurately. Return properly formatted text with correct capitalization, punctuation, and grammar. Return ONLY the transcription text, no JSON."
 
 ---
 
-## Phase 7: Task Management UI
+## Phase 4: Automatic Inbox Recommendations
 
-- [x] **Create TaskList component**
-  Task ID: phase-7-tasks-01
-  > **Implementation**: Create `src/components/tasks/TaskList.tsx`.
-  > **Details**: Renders list of TaskCard components. Subscribes to RxDB tasks collection with filters from ui.store. Groups by project or shows flat list.
+- [ ] **Create Auto-Recommendations Hook**
+  Task ID: phase-4-auto-inbox-01
+  > **Implementation**: Create `/src/hooks/useAutoRecommendations.ts`
+  > **Details**: Hook that automatically fetches recommendations on mount (if AI available). Use sensible defaults for context. Cache results. Return `{ recommendations, isLoading, error, refresh }`.
 
-- [x] **Create TaskCard component**
-  Task ID: phase-7-tasks-02
-  > **Implementation**: Create `src/components/tasks/TaskCard.tsx`.
-  > **Details**: Shows: checkbox, next action text, context badge, energy indicator, time estimate, deadline (if set). Tap to expand/edit. Swipe to complete (mobile).
+- [ ] **Refactor WhatToDoNext for Auto-Load**
+  Task ID: phase-4-auto-inbox-02
+  > **Implementation**: Edit `/src/components/recommendations/WhatToDoNext.tsx`
+  > **Details**: Remove `viewState === 'input'` state. Auto-fetch on mount using `useAutoRecommendations`. Show loading immediately, then results. Keep "Change Context" as optional refinement, not required first step.
 
-- [x] **Create TaskDetail component**
-  Task ID: phase-7-tasks-03
-  > **Implementation**: Create `src/components/tasks/TaskDetail.tsx`.
-  > **Details**: Full task view/edit. Shows all properties with inline editing. "Re-suggest" button to get fresh AI suggestions. Delete button.
+- [ ] **Add Fallback for No-AI Inbox**
+  Task ID: phase-4-auto-inbox-03
+  > **Implementation**: Edit `/src/components/recommendations/WhatToDoNext.tsx`
+  > **Details**: If AI unavailable, show recent/unprocessed thoughts and tasks in simple list. No error state - just different UI. Add "AI recommendations available when configured" message.
 
-- [x] **Create TaskFilters component**
-  Task ID: phase-7-tasks-04
-  > **Implementation**: Create `src/components/tasks/TaskFilters.tsx`.
-  > **Details**: Filter chips for: context, energy, project, has deadline, someday/maybe. Updates ui.store.filters. Shows active filter count.
-
-- [x] **Create ContextBadge component**
-  Task ID: phase-7-tasks-05
-  > **Implementation**: Create `src/components/ui/ContextBadge.tsx`.
-  > **Details**: Colored badge for context. Icons: 💻 computer, 📱 phone, 🛒 errands, 🏠 home, 🌍 anywhere. Consistent colors.
-
-- [x] **Create EnergyIndicator component**
-  Task ID: phase-7-tasks-06
-  > **Implementation**: Create `src/components/ui/EnergyIndicator.tsx`.
-  > **Details**: Visual indicator for energy level. High = ⚡⚡⚡, Medium = ⚡⚡, Low = ⚡. Or use battery icon with fill level.
-
-- [x] **Create ProjectSelector component**
-  Task ID: phase-7-tasks-07
-  > **Implementation**: Create `src/components/tasks/ProjectSelector.tsx`.
-  > **Details**: Dropdown/modal to select project. Shows existing projects, "Create new" option. Used in task editing.
-
-- [x] **Create useTasks hook**
-  Task ID: phase-7-tasks-08
-  > **Implementation**: Create `src/hooks/useTasks.ts`.
-  > **Details**: Subscribe to RxDB tasks. Returns: `tasks`, `addTask`, `updateTask`, `completeTask`, `deleteTask`, `getTaskById`. Handles optimistic updates.
+- [ ] **Remove ContextInput Requirement**
+  Task ID: phase-4-auto-inbox-04
+  > **Implementation**: Edit `/src/components/recommendations/WhatToDoNext.tsx`
+  > **Details**: Move `ContextInput` to expandable "Refine" section. Default collapsed. Recommendations work with smart defaults without user input.
 
 ---
 
-## Phase 8: Thoughts System
+## Phase 5: Enhanced Keyboard Navigation
 
-- [x] **Create ThoughtsList component**
-  Task ID: phase-8-thoughts-01
-  > **Implementation**: Create `src/components/thoughts/ThoughtsList.tsx`.
-  > **Details**: List of ThoughtCard components. Search bar at top. Subscribes to RxDB thoughts collection.
+- [ ] **Add List Navigation Hook**
+  Task ID: phase-5-keyboard-01
+  > **Implementation**: Create `/src/hooks/useListNavigation.ts`
+  > **Details**: Hook for j/k navigation in lists. Accept `items[]`, return `{ selectedIndex, selectNext, selectPrev, selectItem }`. Handle wrap-around option.
 
-- [x] **Create ThoughtCard component**
-  Task ID: phase-8-thoughts-02
-  > **Implementation**: Create `src/components/thoughts/ThoughtCard.tsx`.
-  > **Details**: Shows thought content, tags, linked project, date. "Convert to task" action. Tap to expand.
+- [ ] **Extend useKeyboardShortcuts**
+  Task ID: phase-5-keyboard-02
+  > **Implementation**: Edit `/src/hooks/useKeyboardShortcuts.ts`
+  > **Details**: Add: `j/k` for list navigation, `Enter` to open, `Space/x` to complete task, `e` to edit, `d` to delete, `g+i/t/h` for go-to navigation (Inbox/Tasks/tHoughts).
 
-- [x] **Create ThoughtDetail component**
-  Task ID: phase-8-thoughts-03
-  > **Implementation**: Create `src/components/thoughts/ThoughtDetail.tsx`.
-  > **Details**: Full thought view. Edit content, manage tags, link to project. "Convert to task" button triggers AI extraction flow.
+- [ ] **Add Keyboard Navigation to TaskList**
+  Task ID: phase-5-keyboard-03
+  > **Implementation**: Edit `/src/components/tasks/TaskList.tsx`
+  > **Details**: Integrate `useListNavigation`. Add focus styles to selected item. Handle Enter/Space/e/d keys for actions on selected item.
 
-- [x] **Create ConvertToTaskFlow component**
-  Task ID: phase-8-thoughts-04
-  > **Implementation**: Create `src/components/thoughts/ConvertToTaskFlow.tsx`.
-  > **Details**: Modal that takes thought content, runs through AI task extraction, shows SuggestionReview. On save: creates task, optionally deletes thought.
+- [ ] **Add Keyboard Navigation to ThoughtsList**
+  Task ID: phase-5-keyboard-04
+  > **Implementation**: Edit `/src/components/thoughts/ThoughtsList.tsx`
+  > **Details**: Integrate `useListNavigation`. Add focus styles. Handle Enter to expand, e to edit, d to delete.
 
-- [x] **Create useThoughts hook**
-  Task ID: phase-8-thoughts-05
-  > **Implementation**: Create `src/hooks/useThoughts.ts`.
-  > **Details**: Subscribe to RxDB thoughts. Returns: `thoughts`, `addThought`, `updateThought`, `deleteThought`, `searchThoughts`, `convertToTask`.
+- [ ] **Add Keyboard Navigation to Inbox**
+  Task ID: phase-5-keyboard-05
+  > **Implementation**: Edit `/src/components/recommendations/WhatToDoNext.tsx`
+  > **Details**: Integrate `useListNavigation` for recommendation cards. Enter to start task, Space to view details.
 
----
-
-## Phase 9: AI Recommendations
-
-- [x] **Create WhatToDoNext component**
-  Task ID: phase-9-recommendations-01
-  > **Implementation**: Create `src/components/recommendations/WhatToDoNext.tsx`.
-  > **Details**: Card/section that shows AI's top recommendation. "Why this?" explanation. "Show more options" expands to top 3. "Refresh" button.
-
-- [x] **Create useRecommendations hook**
-  Task ID: phase-9-recommendations-02
-  > **Implementation**: Create `src/hooks/useRecommendations.ts`.
-  > **Details**: `getRecommendations(context: { energy, timeAvailable, location })`. Calls AI with current tasks, returns ranked list with reasoning.
-
-- [x] **Create ContextInput component**
-  Task ID: phase-9-recommendations-03
-  > **Implementation**: Create `src/components/recommendations/ContextInput.tsx`.
-  > **Details**: Quick input for: "How much time do you have?" (chips: 5min, 15min, 30min, 1hr+), "Energy level?" (low, medium, high), "Where are you?" (context).
-
-- [x] **Create RecommendationCard component**
-  Task ID: phase-9-recommendations-04
-  > **Implementation**: Create `src/components/recommendations/RecommendationCard.tsx`.
-  > **Details**: Shows recommended task with AI reasoning ("This matches your energy level and available time"). "Start" button marks as in-progress.
+- [ ] **Create Keyboard Shortcuts Help Modal**
+  Task ID: phase-5-keyboard-06
+  > **Implementation**: Create `/src/components/ui/KeyboardShortcutsModal.tsx`
+  > **Details**: Modal showing all shortcuts. Triggered by `?` key. Use `getKeyboardShortcuts()` from hook. Style with Tailwind.
 
 ---
 
-## Phase 10: P2P Sync (Yjs + WebRTC)
+## Phase 6: Settings UI for Multi-Provider
 
-- [x] **Install and configure Yjs**
-  Task ID: phase-10-sync-01
-  > **Implementation**: Install Yjs and create `src/lib/sync.ts`.
-  > **Details**: `npm install yjs y-webrtc`. Create Y.Doc instance. Set up WebRTC provider with room name derived from user ID.
+- [ ] **Create Provider Selection UI**
+  Task ID: phase-6-settings-01
+  > **Implementation**: Edit `/src/components/settings/SettingsPage.tsx`
+  > **Details**: Add "AI Provider" section with radio buttons: OpenRouter, Yandex. Show relevant config fields based on selection.
 
-- [x] **Create RxDB-Yjs sync bridge**
-  Task ID: phase-10-sync-02
-  > **Implementation**: Create `src/lib/rxdb-yjs-sync.ts`.
-  > **Details**: Two-way sync between RxDB collections and Yjs shared types. On RxDB change → update Yjs. On Yjs update → update RxDB. Handle conflicts with timestamps.
+- [ ] **Create Yandex Settings Section**
+  Task ID: phase-6-settings-02
+  > **Implementation**: Create `/src/components/settings/YandexSettings.tsx`
+  > **Details**: Component for Yandex config: API Key input, Folder ID input, validation button. Similar to existing OpenRouter section.
 
-- [x] **Create SyncStatus component**
-  Task ID: phase-10-sync-03
-  > **Implementation**: Create `src/components/sync/SyncStatus.tsx`.
-  > **Details**: Shows sync status: "Synced", "Syncing...", "Offline", "X peers connected". Small indicator in header.
-
-- [x] **Create SyncSettings component**
-  Task ID: phase-10-sync-04
-  > **Implementation**: Create `src/components/settings/SyncSettings.tsx`.
-  > **Details**: Enable/disable sync toggle. Show room/device ID. "Connect new device" flow with QR code or manual code entry.
-
-- [x] **Create useSyncStatus hook**
-  Task ID: phase-10-sync-05
-  > **Implementation**: Create `src/hooks/useSyncStatus.ts`.
-  > **Details**: Returns: `isOnline`, `isSyncing`, `connectedPeers`, `lastSyncTime`, `syncError`.
+- [ ] **Add Provider Status Indicator**
+  Task ID: phase-6-settings-03
+  > **Implementation**: Edit `/src/components/layout/AppLayout.tsx`
+  > **Details**: Add small indicator (icon/badge) showing AI status: connected, disconnected, or not configured. Non-intrusive, bottom corner or header.
 
 ---
 
-## Phase 11: Recurring Tasks
+## Phase 7: Graceful AI Degradation
 
-- [x] **Add recurrence types**
-  Task ID: phase-11-recurring-01
-  > **Implementation**: Update `src/types/task.ts` with recurrence types.
-  > **Details**: Add `Recurrence` type: `{ pattern: 'daily' | 'weekly' | 'monthly' | 'custom', interval: number, daysOfWeek?: number[], dayOfMonth?: number, endDate?: string }`.
+- [ ] **Create AI Status Context**
+  Task ID: phase-7-graceful-01
+  > **Implementation**: Create `/src/contexts/AIStatusContext.tsx`
+  > **Details**: Context providing `isAIAvailable`, `aiProvider`, `aiError`. Wrap app. Check AI availability on mount and periodically.
 
-- [x] **Create RecurrenceEditor component**
-  Task ID: phase-11-recurring-02
-  > **Implementation**: Create `src/components/tasks/RecurrenceEditor.tsx`.
-  > **Details**: UI to set recurrence: None, Daily, Weekly (pick days), Monthly (pick day), Custom. Shows preview: "Repeats every Monday and Wednesday".
+- [ ] **Update All AI-Dependent Components**
+  Task ID: phase-7-graceful-02
+  > **Implementation**: Edit components in `/src/components/`
+  > **Details**: Each component using AI should check `isAIAvailable` from context. Show appropriate fallback UI. Never block functionality.
 
-- [x] **Create recurrence service**
-  Task ID: phase-11-recurring-03
-  > **Implementation**: Create `src/services/recurrence.ts`.
-  > **Details**: `calculateNextOccurrence(task): Date`, `createNextInstance(task): Task`. Called when task is completed.
+- [ ] **Add Offline-First Capture**
+  Task ID: phase-7-graceful-03
+  > **Implementation**: Edit `/src/App.tsx`
+  > **Details**: Capture always works. If AI unavailable during voice, just skip transcription step and save audio blob. Show "Will transcribe when AI available" message.
 
-- [x] **Update task completion logic**
-  Task ID: phase-11-recurring-04
-  > **Implementation**: Update `src/hooks/useTasks.ts` `completeTask` function.
-  > **Details**: When completing a recurring task: 1) Mark current as completed, 2) Call recurrence service to create next instance, 3) Insert new task with updated deadline.
-
----
-
-## Phase 12: Archive & History
-
-- [x] **Create ArchivedTasksList component**
-  Task ID: phase-12-archive-01
-  > **Implementation**: Create `src/components/archive/ArchivedTasksList.tsx`.
-  > **Details**: List of completed tasks. Grouped by completion date (Today, Yesterday, This Week, Older). Search/filter by text.
-
-- [x] **Create ArchiveStats component**
-  Task ID: phase-12-archive-02
-  > **Implementation**: Create `src/components/archive/ArchiveStats.tsx`.
-  > **Details**: Shows: tasks completed today/this week/this month, streak, most productive context, average completion time.
-
-- [x] **Create useArchive hook**
-  Task ID: phase-12-archive-03
-  > **Implementation**: Create `src/hooks/useArchive.ts`.
-  > **Details**: Query completed tasks from RxDB. Returns: `archivedTasks`, `stats`, `searchArchive`, `restoreTask`.
+- [ ] **Queue Unprocessed Thoughts for Later**
+  Task ID: phase-7-graceful-04
+  > **Implementation**: Edit `/src/hooks/useBackgroundAI.ts`
+  > **Details**: When AI becomes available, process backlog of thoughts with `aiProcessed: false`. Throttle to avoid API spam. Show progress indicator if many items.
 
 ---
 
-## Phase 13: Settings & Polish
+## Phase 8: Polish & Integration
 
-- [x] **Create SettingsPage component**
-  Task ID: phase-13-settings-01
-  > **Implementation**: Create `src/components/settings/SettingsPage.tsx`.
-  > **Details**: Sections: AI Settings (API key, model), Sync Settings, Display Settings (theme), About. Uses settings store.
+- [ ] **Update Task Extractor for Auto-Apply**
+  Task ID: phase-8-polish-01
+  > **Implementation**: Edit `/src/services/task-extractor.ts`
+  > **Details**: Ensure extracted tasks have all properties filled by AI. No "suggested" prefix - just set the values directly.
 
-- [x] **Create ThemeToggle component**
-  Task ID: phase-13-settings-02
-  > **Implementation**: Create `src/components/settings/ThemeToggle.tsx`.
-  > **Details**: Light/Dark/System toggle. Persists to settings. Updates Tailwind dark mode class on document.
+- [ ] **Update Property Suggester for Auto-Apply**
+  Task ID: phase-8-polish-02
+  > **Implementation**: Edit `/src/services/property-suggester.ts`
+  > **Details**: Return definitive values, not suggestions. Change response format from `{ value, confidence, alternatives }` to just values. Keep alternatives for edit UI only.
 
-- [x] **Create OfflineIndicator component**
-  Task ID: phase-13-settings-03
-  > **Implementation**: Create `src/components/ui/OfflineIndicator.tsx`.
-  > **Details**: Banner that shows when offline. "You're offline. Changes will sync when connected."
+- [ ] **Clean Up Unused Suggestion Code**
+  Task ID: phase-8-polish-03
+  > **Implementation**: Edit `/src/types/task.ts`, `/src/stores/capture.store.ts`
+  > **Details**: Remove `AISuggestions` type complexity. Simplify to just store AI-applied values. Remove `CurrentSuggestions`, `PropertySuggestion` types if unused.
 
-- [x] **Create InstallPrompt component**
-  Task ID: phase-13-settings-04
-  > **Implementation**: Create `src/components/pwa/InstallPrompt.tsx`.
-  > **Details**: Prompts user to install PWA. Shows on mobile after 2nd visit. Uses `beforeinstallprompt` event.
+- [ ] **Add Thought-Task Link UI**
+  Task ID: phase-8-polish-04
+  > **Implementation**: Edit `/src/components/tasks/TaskCard.tsx`
+  > **Details**: If task has `sourceThoughtId`, show small link icon. Clicking navigates to source thought.
 
-- [x] **Create OnboardingFlow component**
-  Task ID: phase-13-settings-05
-  > **Implementation**: Create `src/components/onboarding/OnboardingFlow.tsx`.
-  > **Details**: First-run experience: Welcome → Enter API key → Quick tutorial (capture, view tasks, AI suggestions) → Done.
+- [ ] **Add Task-Thought Link UI**
+  Task ID: phase-8-polish-05
+  > **Implementation**: Edit `/src/components/thoughts/ThoughtCard.tsx`
+  > **Details**: Show linked tasks count badge. Expandable section showing linked task titles.
 
-- [x] **Add keyboard shortcuts**
-  Task ID: phase-13-settings-06
-  > **Implementation**: Create `src/hooks/useKeyboardShortcuts.ts`.
-  > **Details**: Shortcuts: `c` = open capture, `Escape` = close modal, `1-4` = switch views, `/` = search. Register globally.
-
-- [x] **Final responsive polish**
-  Task ID: phase-13-settings-07
-  > **Implementation**: Review all components for responsive behavior.
-  > **Details**: Test on mobile (375px), tablet (768px), desktop (1024px+). Fix any layout issues. Ensure touch targets are 44px minimum.
+- [ ] **Integration Testing Checklist**
+  Task ID: phase-8-polish-06
+  > **Implementation**: Manual testing
+  > **Details**: Test: 1) Capture without AI creates thought, 2) AI processes thought in background, 3) Inbox loads recommendations automatically, 4) All keyboard shortcuts work, 5) App works fully offline, 6) Provider switching works.
 
 ---
 
-## Phase 14: Testing & Documentation
+## Summary
 
-- [ ] **Set up testing infrastructure**
-  Task ID: phase-14-testing-01
-  > **Implementation**: Install Vitest and React Testing Library. Create `vitest.config.ts`.
-  > **Details**: `npm install -D vitest @testing-library/react @testing-library/jest-dom jsdom`. Configure for React components.
+| Phase | Tasks | Focus |
+|-------|-------|-------|
+| 1 | 8 | AI Provider Abstraction |
+| 2 | 8 | Thought-First Capture |
+| 3 | 3 | Voice Quality |
+| 4 | 4 | Auto Inbox |
+| 5 | 6 | Keyboard Navigation |
+| 6 | 3 | Settings UI |
+| 7 | 4 | Graceful Degradation |
+| 8 | 6 | Polish & Integration |
+| **Total** | **42** | |
 
-- [ ] **Write tests for core services**
-  Task ID: phase-14-testing-02
-  > **Implementation**: Create tests in `src/services/__tests__/`.
-  > **Details**: Test: task extraction parsing, recurrence calculations, property suggestions parsing. Mock OpenRouter calls.
+---
 
-- [ ] **Write tests for hooks**
-  Task ID: phase-14-testing-03
-  > **Implementation**: Create tests in `src/hooks/__tests__/`.
-  > **Details**: Test: useTasks CRUD operations, useVoiceRecording states, useRecommendations.
+## Previous Implementation (Completed)
 
-- [ ] **Create README with setup instructions**
-  Task ID: phase-14-testing-04
-  > **Implementation**: Create `README.md` in project root.
-  > **Details**: Include: Project overview, tech stack, setup instructions, environment variables, development commands, architecture overview.
+The following phases were completed in the initial implementation:
+
+- [x] Phase 1-7: Project Setup, Database, State Management, Core UI
+- [x] Phase 8-11: Capture Flow, AI Integration, Task/Thought Management, Recommendations
+- [x] Phase 12-13: P2P Sync, Recurring Tasks, Archive, Settings
 
 ---
 
