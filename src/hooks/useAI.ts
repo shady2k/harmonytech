@@ -1,9 +1,10 @@
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 import { useSettingsStore } from '@/stores'
 import { extractFromText, type ExtractionResult } from '@/services/task-extractor'
 import { processVoiceRecording, type VoiceProcessingResult } from '@/services/voice-processor'
 import { suggestProperties, type PropertySuggestions } from '@/services/property-suggester'
-import { aiService, createProvider } from '@/services/ai'
+import { aiService } from '@/services/ai'
+import { useAIStatus } from '@/hooks/useAIStatus'
 import type { CurrentSuggestions } from '@/stores/capture.store'
 
 interface UseAIReturn {
@@ -35,36 +36,17 @@ interface UseAIReturn {
 export function useAI(): UseAIReturn {
   const [isProcessing, setIsProcessing] = useState(false)
   const [error, setError] = useState<string | null>(null)
-  const [isAIAvailable, setIsAIAvailable] = useState(false)
 
   const {
-    aiProvider,
     apiKey,
-    yandexApiKey,
-    yandexFolderId,
     textModel,
     voiceModel,
     isApiKeyValid,
     validateApiKey: storeValidateApiKey,
-    getActiveApiKey,
   } = useSettingsStore()
 
-  // Update AI provider when settings change
-  useEffect(() => {
-    const activeKey = getActiveApiKey()
-    if (activeKey !== null && activeKey !== '') {
-      const config = {
-        apiKey: activeKey,
-        folderId: aiProvider === 'yandex' ? (yandexFolderId ?? undefined) : undefined,
-      }
-      const provider = createProvider(aiProvider, config)
-      aiService.setProvider(provider)
-      setIsAIAvailable(provider.isAvailable())
-    } else {
-      aiService.setProvider(null)
-      setIsAIAvailable(false)
-    }
-  }, [aiProvider, apiKey, yandexApiKey, yandexFolderId, getActiveApiKey])
+  // Get AI availability from context (provider is set there)
+  const { isAIAvailable } = useAIStatus()
 
   const clearError = useCallback((): void => {
     setError(null)

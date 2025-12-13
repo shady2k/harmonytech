@@ -131,29 +131,44 @@ export function useBackgroundAI(): BackgroundAIState {
 
           try {
             const suggestions = await suggestProperties(extractedTask.nextAction, [], model)
+            log.debug('Property suggestions:', suggestions)
             context = suggestions.context.value
             energy = suggestions.energy.value
             timeEstimate = suggestions.timeEstimate.value
             project = suggestions.project.value ?? undefined
-          } catch {
+          } catch (err) {
+            log.error('Failed to get property suggestions:', err)
             // Use defaults if suggestion fails
           }
 
           // Create the task
-          await db.tasks.insert({
-            id: taskId,
-            rawInput: extractedTask.rawInput,
+          log.debug('Creating task:', {
+            taskId,
             nextAction: extractedTask.nextAction,
             context,
             energy,
             timeEstimate,
-            project,
-            isSomedayMaybe: false,
-            isCompleted: false,
-            createdAt: now,
-            updatedAt: now,
-            sourceThoughtId: thought.id,
           })
+          try {
+            await db.tasks.insert({
+              id: taskId,
+              rawInput: extractedTask.rawInput,
+              nextAction: extractedTask.nextAction,
+              context,
+              energy,
+              timeEstimate,
+              project,
+              isSomedayMaybe: false,
+              isCompleted: false,
+              createdAt: now,
+              updatedAt: now,
+              sourceThoughtId: thought.id,
+            })
+            log.debug('Task created successfully:', taskId)
+          } catch (insertErr) {
+            log.error('Failed to insert task:', insertErr)
+            throw insertErr
+          }
         }
 
         // Update thought with linked tasks and mark as processed

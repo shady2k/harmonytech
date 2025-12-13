@@ -4,6 +4,9 @@
  */
 
 import type { AIProvider, ChatMessage, ChatResponse, ProviderType } from './types'
+import { logger } from '@/lib/logger'
+
+const log = logger.ai
 
 export class AIService {
   private provider: AIProvider | null = null
@@ -12,6 +15,7 @@ export class AIService {
    * Set the active AI provider
    */
   setProvider(provider: AIProvider | null): void {
+    log.debug('Setting provider:', provider?.type ?? 'null')
     this.provider = provider
   }
 
@@ -42,10 +46,37 @@ export class AIService {
    */
   async chat(messages: ChatMessage[], model: string): Promise<ChatResponse | null> {
     if (this.provider?.isAvailable() !== true) {
+      log.debug('Chat request skipped - provider not available')
       return null
     }
 
-    return this.provider.chat(messages, model)
+    log.debug('Chat request:', {
+      provider: this.provider.type,
+      model,
+      messageCount: messages.length,
+      messages: messages.map((m) => ({
+        role: m.role,
+        contentPreview:
+          typeof m.content === 'string'
+            ? m.content.slice(0, 200) + (m.content.length > 200 ? '...' : '')
+            : '[multipart content]',
+      })),
+    })
+
+    try {
+      const response = await this.provider.chat(messages, model)
+      log.debug('Chat response:', {
+        id: response.id,
+        contentPreview:
+          response.content.slice(0, 500) + (response.content.length > 500 ? '...' : ''),
+        contentLength: response.content.length,
+        usage: response.usage,
+      })
+      return response
+    } catch (error) {
+      log.error('Chat error:', error)
+      throw error
+    }
   }
 
   /**
@@ -59,10 +90,32 @@ export class AIService {
     model: string
   ): Promise<ChatResponse | null> {
     if (this.provider?.isAvailable() !== true) {
+      log.debug('Audio chat request skipped - provider not available')
       return null
     }
 
-    return this.provider.chatWithAudio(audioBase64, audioFormat, prompt, model)
+    log.debug('Audio chat request:', {
+      provider: this.provider.type,
+      model,
+      audioFormat,
+      audioSizeKB: Math.round(audioBase64.length / 1024),
+      promptPreview: prompt.slice(0, 200) + (prompt.length > 200 ? '...' : ''),
+    })
+
+    try {
+      const response = await this.provider.chatWithAudio(audioBase64, audioFormat, prompt, model)
+      log.debug('Audio chat response:', {
+        id: response.id,
+        contentPreview:
+          response.content.slice(0, 500) + (response.content.length > 500 ? '...' : ''),
+        contentLength: response.content.length,
+        usage: response.usage,
+      })
+      return response
+    } catch (error) {
+      log.error('Audio chat error:', error)
+      throw error
+    }
   }
 
   /**
@@ -70,10 +123,19 @@ export class AIService {
    */
   async validateKey(): Promise<boolean> {
     if (!this.provider) {
+      log.debug('Key validation skipped - no provider')
       return false
     }
 
-    return this.provider.validateKey()
+    log.debug('Validating API key for provider:', this.provider.type)
+    try {
+      const isValid = await this.provider.validateKey()
+      log.debug('Key validation result:', { provider: this.provider.type, isValid })
+      return isValid
+    } catch (error) {
+      log.error('Key validation error:', error)
+      return false
+    }
   }
 }
 
