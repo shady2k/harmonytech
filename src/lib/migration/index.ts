@@ -33,6 +33,7 @@ import {
 } from './shadow-db'
 import { createTransformers } from './data-transformer'
 import { cleanupOrphanedDatabases, detectOrphanedDatabases, cleanupOldDatabase } from './cleanup'
+import { logger } from '@/lib/logger'
 
 // ============================================================================
 // Migration Orchestrator
@@ -44,6 +45,7 @@ export class MigrationOrchestrator {
   private shadowDb: ShadowDatabase | null = null
   private migrationStats = new Map<string, MigrationStats>()
   private channel: BroadcastChannel | null = null
+  private forceMigration = false
 
   constructor() {
     // Set up BroadcastChannel for multi-tab coordination
@@ -89,7 +91,21 @@ export class MigrationOrchestrator {
   // Pre-Migration Checks
   // ============================================================================
 
+  /**
+   * Force the next migration check to return true.
+   * Used when DB errors indicate stale version metadata.
+   */
+  setForceMigration(force: boolean): void {
+    this.forceMigration = force
+  }
+
   async checkMigrationNeeded(): Promise<boolean> {
+    // If force flag is set (e.g., from DB6/DM4 error recovery), always migrate
+    if (this.forceMigration) {
+      logger.db.info('Force migration flag set, proceeding with migration')
+      return true
+    }
+
     // First, check for orphaned databases from interrupted migrations
     const orphanResult = await detectOrphanedDatabases()
     if (orphanResult.hasOrphans || orphanResult.staleLock) {

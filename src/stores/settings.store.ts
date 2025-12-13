@@ -3,6 +3,7 @@ import type { TaskContext, TaskEnergy } from '@/types/task'
 import type { AIProviderType, Settings, Theme } from '@/types/settings'
 import type { HarmonyTechDatabase } from '@/lib/database'
 import type { RxDocument } from 'rxdb'
+import { AI_CONFIDENCE_THRESHOLD } from '@/lib/constants/ai'
 
 // Use proxy in development to avoid CORS issues
 const YANDEX_TOKENIZE_URL = import.meta.env.DEV
@@ -17,6 +18,10 @@ interface SettingsState {
   yandexFolderId: string | null
   textModel: string | null
   voiceModel: string | null
+
+  // AI behavior settings
+  aiEnabled: boolean
+  aiConfidenceThreshold: number
 
   // Other settings
   theme: Theme
@@ -41,6 +46,10 @@ interface SettingsActions {
   validateApiKey: () => Promise<boolean>
   getActiveApiKey: () => string | null
 
+  // AI behavior
+  setAIEnabled: (enabled: boolean) => void
+  setAIConfidenceThreshold: (threshold: number) => void
+
   // Settings updates
   setTextModel: (model: string | null) => void
   setVoiceModel: (model: string | null) => void
@@ -64,6 +73,8 @@ const initialState: SettingsState = {
   yandexFolderId: null,
   textModel: null,
   voiceModel: null,
+  aiEnabled: true,
+  aiConfidenceThreshold: AI_CONFIDENCE_THRESHOLD,
   theme: 'system',
   defaultContext: 'anywhere',
   defaultEnergy: 'medium',
@@ -91,6 +102,14 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
 
   setYandexFolderId: (yandexFolderId): void => {
     set({ yandexFolderId })
+  },
+
+  setAIEnabled: (aiEnabled): void => {
+    set({ aiEnabled })
+  },
+
+  setAIConfidenceThreshold: (aiConfidenceThreshold): void => {
+    set({ aiConfidenceThreshold })
   },
 
   getActiveApiKey: (): string | null => {
@@ -199,6 +218,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
           yandexFolderId: settingsDoc.yandexFolderId ?? null,
           textModel: settingsDoc.textModel ?? null,
           voiceModel: settingsDoc.voiceModel ?? null,
+          aiEnabled: settingsDoc.aiEnabled ?? true,
+          aiConfidenceThreshold: settingsDoc.aiConfidenceThreshold ?? AI_CONFIDENCE_THRESHOLD,
           theme: settingsDoc.theme,
           defaultContext: settingsDoc.defaultContext,
           defaultEnergy: settingsDoc.defaultEnergy,
@@ -218,6 +239,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
       yandexFolderId,
       textModel,
       voiceModel,
+      aiEnabled,
+      aiConfidenceThreshold,
       theme,
       defaultContext,
       defaultEnergy,
@@ -235,6 +258,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
           yandexFolderId: yandexFolderId ?? undefined,
           textModel: textModel ?? undefined,
           voiceModel: voiceModel ?? undefined,
+          aiEnabled,
+          aiConfidenceThreshold,
           theme,
           defaultContext,
           defaultEnergy,
@@ -258,6 +283,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
             yandexFolderId: settingsDoc.yandexFolderId ?? null,
             textModel: settingsDoc.textModel ?? null,
             voiceModel: settingsDoc.voiceModel ?? null,
+            aiEnabled: settingsDoc.aiEnabled ?? true,
+            aiConfidenceThreshold: settingsDoc.aiConfidenceThreshold ?? AI_CONFIDENCE_THRESHOLD,
             theme: settingsDoc.theme,
             defaultContext: settingsDoc.defaultContext,
             defaultEnergy: settingsDoc.defaultEnergy,

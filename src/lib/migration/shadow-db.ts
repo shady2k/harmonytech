@@ -11,6 +11,11 @@ import {
 } from '@/lib/schemas/voice-recording.schema'
 import { projectSchema, type ProjectCollection } from '@/lib/schemas/project.schema'
 import { settingsSchema, type SettingsCollection } from '@/lib/schemas/settings.schema'
+import {
+  thoughtMigrationStrategies,
+  taskMigrationStrategies,
+  settingsMigrationStrategies,
+} from '@/lib/migration/schema-migrations'
 
 // ============================================================================
 // Shadow Database Types
@@ -43,8 +48,8 @@ function getStorage(): RxStorage<unknown, unknown> {
 // ============================================================================
 
 /**
- * Creates a fresh shadow database with the latest schemas.
- * This database has NO migration strategies since it's brand new.
+ * Creates a shadow database with the latest schemas.
+ * Includes migration strategies in case the DB already exists from a previous failed attempt.
  * Data will be copied from the legacy database via transformers.
  */
 export async function createShadowDatabase(dbName: string): Promise<ShadowDatabase> {
@@ -54,16 +59,16 @@ export async function createShadowDatabase(dbName: string): Promise<ShadowDataba
     ignoreDuplicate: true,
   })
 
-  // Add collections with LATEST schemas - NO migration strategies needed
-  // since this is a fresh database
+  // Add collections with LATEST schemas and migration strategies
+  // Migration strategies are needed in case DB already exists from failed attempt
   await db.addCollections({
     tasks: {
       schema: taskSchema,
-      // No migrationStrategies - fresh DB
+      migrationStrategies: taskMigrationStrategies,
     },
     thoughts: {
       schema: thoughtSchema,
-      // No migrationStrategies - fresh DB
+      migrationStrategies: thoughtMigrationStrategies,
     },
     voice_recordings: {
       schema: voiceRecordingSchema,
@@ -73,7 +78,7 @@ export async function createShadowDatabase(dbName: string): Promise<ShadowDataba
     },
     settings: {
       schema: settingsSchema,
-      // No migrationStrategies - fresh DB
+      migrationStrategies: settingsMigrationStrategies,
     },
   })
 

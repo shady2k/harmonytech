@@ -1,8 +1,10 @@
 import { type ReactElement, useCallback, useState } from 'react'
 import { useAutoRecommendations } from '@/hooks/useAutoRecommendations'
+import { useInbox } from '@/hooks/useInbox'
 import { useUIStore } from '@/stores/ui.store'
 import { ContextInput } from './ContextInput'
 import { RecommendationCard } from './RecommendationCard'
+import { InboxAlertBanner } from '@/components/inbox/InboxAlertBanner'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
@@ -23,6 +25,7 @@ export function WhatToDoNext({ className = '' }: WhatToDoNextProps): ReactElemen
     isAIAvailable,
     refresh,
   } = useAutoRecommendations()
+  const { count: inboxCount } = useInbox()
   const { selectTask, setActiveView } = useUIStore()
 
   const [showAll, setShowAll] = useState(false)
@@ -58,6 +61,10 @@ export function WhatToDoNext({ className = '' }: WhatToDoNextProps): ReactElemen
 
   const handleViewThought = useCallback((): void => {
     setActiveView('thoughts')
+  }, [setActiveView])
+
+  const handleGoToInbox = useCallback((): void => {
+    setActiveView('inbox')
   }, [setActiveView])
 
   // Loading state
@@ -199,6 +206,9 @@ export function WhatToDoNext({ className = '' }: WhatToDoNextProps): ReactElemen
 
   return (
     <div className={`space-y-4 ${className}`}>
+      {/* Inbox alert banner */}
+      <InboxAlertBanner count={inboxCount} onReview={handleGoToInbox} />
+
       {/* Header */}
       <div className="flex items-center justify-between">
         <h3 className="text-lg font-semibold text-gray-900 dark:text-white">

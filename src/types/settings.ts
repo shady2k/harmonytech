@@ -12,6 +12,8 @@ export interface Settings {
   yandexFolderId?: string
   textModel?: string
   voiceModel?: string
+  aiEnabled?: boolean
+  aiConfidenceThreshold?: number
   theme: Theme
   defaultContext: TaskContext
   defaultEnergy: TaskEnergy

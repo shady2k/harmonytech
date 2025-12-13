@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { TaskContext, TaskEnergy } from '@/types/task'
 
-export type ActiveView = 'inbox' | 'tasks' | 'thoughts' | 'settings'
+export type ActiveView = 'home' | 'inbox' | 'tasks' | 'thoughts' | 'settings'
 
 export interface TaskFilters {
   context: TaskContext | null
@@ -55,7 +55,7 @@ interface UIActions {
 }
 
 const initialState: UIState = {
-  activeView: 'inbox',
+  activeView: 'home',
   isCaptureOpen: false,
   isProcessing: false,
   selectedTaskId: null,

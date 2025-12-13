@@ -107,6 +107,12 @@ export function isFreshInstall(): boolean {
   return info === null
 }
 
+export function isDowngrade(): boolean {
+  const info = getDbVersionInfo()
+  if (info === null) return false
+  return info.version > CURRENT_SCHEMA_VERSION
+}
+
 export async function hasLegacyDatabase(): Promise<boolean> {
   if (typeof indexedDB.databases !== 'function') {
     // Fallback for browsers without databases() method

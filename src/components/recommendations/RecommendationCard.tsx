@@ -121,7 +121,7 @@ export function RecommendationCard({
         </div>
 
         {/* AI reasoning */}
-        <div className="rounded-lg bg-gray-100 p-3 dark:bg-gray-800">
+        <div className="rounded-lg bg-indigo-50 p-3 dark:bg-indigo-900/30">
           <div className="mb-1 flex items-center gap-1.5">
             <svg
               className="h-4 w-4 text-indigo-600 dark:text-indigo-400"

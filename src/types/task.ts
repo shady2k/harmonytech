@@ -4,6 +4,8 @@ export type TaskEnergy = 'high' | 'medium' | 'low'
 
 export type RecurrencePattern = 'daily' | 'weekly' | 'monthly' | 'custom'
 
+export type ClassificationStatus = 'pending' | 'classified' | 'user_override'
+
 export interface Recurrence {
   pattern: RecurrencePattern
   interval: number
@@ -42,4 +44,5 @@ export interface Task {
   aiSuggestions?: AISuggestions
   recurrence?: Recurrence
   sourceThoughtId?: string
+  classificationStatus?: ClassificationStatus
 }

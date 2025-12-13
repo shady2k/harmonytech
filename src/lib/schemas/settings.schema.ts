@@ -6,7 +6,7 @@ export type SettingsDocument = RxDocument<SettingsDocType>
 export type SettingsCollection = RxCollection<SettingsDocType>
 
 export const settingsSchema: RxJsonSchema<SettingsDocType> = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -32,6 +32,12 @@ export const settingsSchema: RxJsonSchema<SettingsDocType> = {
     },
     voiceModel: {
       type: 'string',
+    },
+    aiEnabled: {
+      type: 'boolean',
+    },
+    aiConfidenceThreshold: {
+      type: 'number',
     },
     theme: {
       type: 'string',

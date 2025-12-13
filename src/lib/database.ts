@@ -5,6 +5,7 @@ import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode'
 import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder'
 import { RxDBUpdatePlugin } from 'rxdb/plugins/update'
 import { RxDBLeaderElectionPlugin } from 'rxdb/plugins/leader-election'
+import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema'
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv'
 
 import { taskSchema, type TaskCollection, type TaskDocument } from '@/lib/schemas/task.schema'
@@ -29,6 +30,11 @@ import {
   type SettingsDocument,
 } from '@/lib/schemas/settings.schema'
 import { getCurrentDbName } from '@/lib/migration/version-manager'
+import {
+  thoughtMigrationStrategies,
+  taskMigrationStrategies,
+  settingsMigrationStrategies,
+} from '@/lib/migration/schema-migrations'
 
 // Add plugins
 if (import.meta.env.DEV) {
@@ -37,6 +43,7 @@ if (import.meta.env.DEV) {
 addRxPlugin(RxDBQueryBuilderPlugin)
 addRxPlugin(RxDBUpdatePlugin)
 addRxPlugin(RxDBLeaderElectionPlugin)
+addRxPlugin(RxDBMigrationSchemaPlugin)
 
 // Get storage with validation in dev mode
 function getStorage(): RxStorage<unknown, unknown> {
@@ -90,13 +97,22 @@ async function createDatabaseWithName(dbName: string): Promise<HarmonyTechDataba
     ignoreDuplicate: true,
   })
 
-  // Add collections with schemas (all at version 0 - no migrations needed)
+  // Add collections with schemas and migration strategies
   await db.addCollections({
-    tasks: { schema: taskSchema },
-    thoughts: { schema: thoughtSchema },
+    tasks: {
+      schema: taskSchema,
+      migrationStrategies: taskMigrationStrategies,
+    },
+    thoughts: {
+      schema: thoughtSchema,
+      migrationStrategies: thoughtMigrationStrategies,
+    },
     voice_recordings: { schema: voiceRecordingSchema },
     projects: { schema: projectSchema },
-    settings: { schema: settingsSchema },
+    settings: {
+      schema: settingsSchema,
+      migrationStrategies: settingsMigrationStrategies,
+    },
   })
 
   return db

@@ -282,6 +282,19 @@ const transformSettings: DocumentTransformer = (doc) => {
       settings['voiceModel'] = cleaned['voiceModel']
     }
 
+    // New fields (v1) - derive aiEnabled from API key presence
+    const hasApiKey = Boolean(cleaned['openRouterApiKey']) || Boolean(cleaned['yandexApiKey'])
+    if (typeof cleaned['aiEnabled'] === 'boolean') {
+      settings['aiEnabled'] = cleaned['aiEnabled']
+    } else {
+      settings['aiEnabled'] = hasApiKey
+    }
+    if (typeof cleaned['aiConfidenceThreshold'] === 'number') {
+      settings['aiConfidenceThreshold'] = cleaned['aiConfidenceThreshold']
+    } else {
+      settings['aiConfidenceThreshold'] = 0.7
+    }
+
     return removeUndefined(settings)
   } catch {
     return null

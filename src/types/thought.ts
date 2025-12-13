@@ -1,3 +1,5 @@
+export type ProcessingStatus = 'unprocessed' | 'processing' | 'processed' | 'failed'
+
 export interface Thought {
   id: string
   content: string
@@ -8,4 +10,5 @@ export interface Thought {
   sourceRecordingId?: string
   linkedTaskIds: string[]
   aiProcessed: boolean
+  processingStatus: ProcessingStatus
 }

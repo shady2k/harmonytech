@@ -14,8 +14,6 @@ Continue [feature] on branch `[branch]`.
 
 **Context:** [1 sentence — what and why]
 
-**Tracker:** [ISSUE-ID]
-
 **Done:** [bullet list, max 5 items, brief]
 
 **NOW DO THIS:**
@@ -35,6 +33,5 @@ Continue [feature] on branch `[branch]`.
 
 **Important notes:**
 - **Explore if needed** — if unclear what's next, explore codebase/spec to determine next functional task
-- **Update tracker checklist** — mark items done with yandex tracker skill
-- **No optional tasks** — ALL checklist items must be done. Complete current layer before moving to next
+- **No optional tasks** — ALL items must be done. Complete current layer before moving to next
 ```

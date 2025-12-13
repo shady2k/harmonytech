@@ -10,7 +10,9 @@ import { ThoughtsList } from '@/components/thoughts/ThoughtsList'
 import { TaskList } from '@/components/tasks/TaskList'
 import { SettingsPage } from '@/components/settings/SettingsPage'
 import { WhatToDoNext } from '@/components/recommendations/WhatToDoNext'
+import { InboxView } from '@/components/inbox/InboxView'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { OfflineBanner } from '@/components/ui/OfflineBanner'
 import { useAI } from '@/hooks/useAI'
 import { useBackgroundAI } from '@/hooks/useBackgroundAI'
 
@@ -142,6 +144,7 @@ function AppContent(): ReactElement {
         tags: thought.tags,
         linkedTaskIds: [],
         aiProcessed: false,
+        processingStatus: 'unprocessed',
         createdAt: now,
         updatedAt: now,
       })
@@ -187,16 +190,28 @@ function AppContent(): ReactElement {
 
   const renderView = (): ReactElement => {
     switch (activeView) {
+      case 'home':
+        return (
+          <div className="space-y-6">
+            <div>
+              <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Home</h1>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                Get personalized task recommendations
+              </p>
+            </div>
+            <WhatToDoNext />
+          </div>
+        )
       case 'inbox':
         return (
           <div className="space-y-6">
             <div>
               <h1 className="text-2xl font-bold text-gray-900 dark:text-white">Inbox</h1>
               <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-                Get personalized task recommendations
+                Items that need your attention
               </p>
             </div>
-            <WhatToDoNext />
+            <InboxView />
           </div>
         )
       case 'tasks':
@@ -232,6 +247,7 @@ function AppContent(): ReactElement {
 
   return (
     <>
+      <OfflineBanner />
       <AppLayout activeView={activeView} onViewChange={setActiveView} onCaptureClick={openCapture}>
         {renderView()}
       </AppLayout>

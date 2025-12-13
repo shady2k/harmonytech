@@ -6,7 +6,7 @@ export type TaskDocument = RxDocument<TaskDocType>
 export type TaskCollection = RxCollection<TaskDocType>
 
 export const taskSchema: RxJsonSchema<TaskDocType> = {
-  version: 0,
+  version: 1,
   primaryKey: 'id',
   type: 'object',
   properties: {
@@ -131,6 +131,11 @@ export const taskSchema: RxJsonSchema<TaskDocType> = {
     sourceThoughtId: {
       type: 'string',
       maxLength: 100,
+    },
+    classificationStatus: {
+      type: 'string',
+      enum: ['pending', 'classified', 'user_override'],
+      maxLength: 20,
     },
   },
   required: [

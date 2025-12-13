@@ -41,6 +41,7 @@ function documentToThought(doc: RxDocument<Thought>): Thought {
     sourceRecordingId: data.sourceRecordingId,
     linkedTaskIds,
     aiProcessed: data.aiProcessed,
+    processingStatus: data.processingStatus,
   }
 }
 

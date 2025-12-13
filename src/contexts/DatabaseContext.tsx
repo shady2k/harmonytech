@@ -7,30 +7,7 @@ import {
 } from '@/lib/database'
 import { MigrationProvider } from '@/contexts/MigrationContext'
 import { getMigrationOrchestrator } from '@/lib/migration'
-
-// Auto-heal: clear all HarmonyTech databases
-async function clearAllDatabases(): Promise<void> {
-  const databases = await indexedDB.databases()
-  for (const dbInfo of databases) {
-    const dbName = dbInfo.name
-    if (dbName?.startsWith('harmonytech') === true) {
-      await new Promise<void>((resolve) => {
-        const request = indexedDB.deleteDatabase(dbName)
-        request.onsuccess = (): void => {
-          resolve()
-        }
-        request.onerror = (): void => {
-          resolve()
-        }
-        request.onblocked = (): void => {
-          resolve()
-        }
-      })
-    }
-  }
-  localStorage.removeItem('harmonytech_db_version')
-  localStorage.removeItem('harmonytech_migration_lock')
-}
+import { isDowngrade } from '@/lib/migration/version-manager'
 
 // ============================================================================
 // Context Types
@@ -63,12 +40,18 @@ export function DatabaseProvider({ children }: DatabaseProviderProps): React.JSX
   useEffect(() => {
     const checkMigration = async (): Promise<void> => {
       try {
+        // MANDATORY: Check for downgrade FIRST
+        if (isDowngrade()) {
+          throw new Error(
+            'Database was created with a newer app version. Please update the app or clear browser data to continue.'
+          )
+        }
         const orchestrator = getMigrationOrchestrator()
         const needed = await orchestrator.checkMigrationNeeded()
         setNeedsMigration(needed)
-      } catch {
-        // If check fails, assume migration needed
-        setNeedsMigration(true)
+      } catch (err) {
+        setError(err instanceof Error ? err : new Error('Migration check failed'))
+        setNeedsMigration(false)
       }
     }
     void checkMigration()
@@ -98,13 +81,26 @@ export function DatabaseProvider({ children }: DatabaseProviderProps): React.JSX
       } catch (err) {
         const errorMessage = err instanceof Error ? err.message : String(err)
 
-        // Auto-heal: if schema mismatch, clear old databases and retry
-        if (errorMessage.includes('different schema') || errorMessage.includes('DB6')) {
-          await clearAllDatabases()
-          window.location.reload()
+        // Safety net: catch DB6/DM4/schema mismatch errors and trigger orchestrator
+        // This handles cases where localStorage version is stale but actual DB needs migration
+        const isSchemaError =
+          errorMessage.includes('DB6') ||
+          errorMessage.includes('DM4') ||
+          errorMessage.includes('schema') ||
+          errorMessage.includes('closed harmonytech')
+
+        if (isSchemaError) {
+          // Schema error detected - force orchestrator to run migration
+          resetDatabaseCache()
+          const orchestrator = getMigrationOrchestrator()
+          orchestrator.setForceMigration(true)
+          setNeedsMigration(true)
+          setMigrationComplete(false)
           return
         }
 
+        // Note: We do NOT clear databases on errors - data integrity is paramount
+        // Schema mismatches should be handled by proper migrations, not data deletion
         setError(err instanceof Error ? err : new Error('Failed to initialize database'))
       } finally {
         setIsLoading(false)
