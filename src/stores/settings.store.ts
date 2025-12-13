@@ -124,8 +124,41 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
         set({ isApiKeyValid: isValid, isValidating: false })
         return isValid
       } else {
-        // Yandex validation - just check if credentials are provided for now
-        const isValid = !!(yandexApiKey && yandexFolderId)
+        // Yandex validation - test the API with tokenize endpoint
+        if (
+          yandexApiKey === null ||
+          yandexApiKey === '' ||
+          yandexFolderId === null ||
+          yandexFolderId === ''
+        ) {
+          set({ isApiKeyValid: false, isValidating: false })
+          return false
+        }
+
+        const controller = new AbortController()
+        const timeoutId = setTimeout(() => {
+          controller.abort()
+        }, 10000)
+
+        const response = await fetch(
+          'https://llm.api.cloud.yandex.net/foundationModels/v1/tokenize',
+          {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              Authorization: `Api-Key ${yandexApiKey}`,
+              'x-folder-id': yandexFolderId,
+            },
+            body: JSON.stringify({
+              modelUri: `gpt://${yandexFolderId}/yandexgpt-lite`,
+              text: 'test',
+            }),
+            signal: controller.signal,
+          }
+        )
+
+        clearTimeout(timeoutId)
+        const isValid = response.ok
         set({ isApiKeyValid: isValid, isValidating: false })
         return isValid
       }

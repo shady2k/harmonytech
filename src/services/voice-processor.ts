@@ -1,4 +1,4 @@
-import { getOpenRouterClient } from './openrouter'
+import { aiService } from './ai'
 import { VOICE_TRANSCRIPTION_PROMPT } from '@/lib/ai-prompts'
 
 export interface VoiceProcessingResult {
@@ -71,24 +71,32 @@ async function convertToWav(audioBlob: Blob): Promise<Blob> {
 
 export async function processVoiceRecording(
   audioBlob: Blob,
-  apiKey: string,
+  _apiKey: string, // Kept for backwards compatibility, but not used
   model: string
 ): Promise<VoiceProcessingResult> {
+  // Check if AI service is available
+  if (!aiService.isAvailable()) {
+    throw new Error('AI service is not available. Please configure an AI provider.')
+  }
+
   // Convert to WAV for better compatibility with audio models
   const wavBlob = await convertToWav(audioBlob)
   const audioBase64 = await blobToBase64(wavBlob)
   const audioFormat = 'wav'
 
-  const client = getOpenRouterClient(apiKey)
-
-  const response = await client.chatWithAudio(
+  // Use the abstracted AI service (supports OpenRouter, Yandex, etc.)
+  const response = await aiService.chatWithAudio(
     audioBase64,
     audioFormat,
     VOICE_TRANSCRIPTION_PROMPT,
     model
   )
 
-  const content = response.choices[0]?.message.content
+  if (!response) {
+    throw new Error('AI service returned no response')
+  }
+
+  const content = response.content
   if (!content) {
     throw new Error('Empty response from AI')
   }

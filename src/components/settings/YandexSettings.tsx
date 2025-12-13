@@ -4,15 +4,23 @@ import { useDatabase } from '@/hooks'
 import { Button, Input } from '@/components/ui'
 import { NavIcon } from '@/components/layout/NavIcon'
 
+// Available Yandex GPT models
+const YANDEX_MODELS = [
+  { id: 'yandexgpt-lite', name: 'YandexGPT Lite', description: 'Fast and cost-effective' },
+  { id: 'yandexgpt', name: 'YandexGPT', description: 'Higher quality, more capable' },
+]
+
 export function YandexSettings(): ReactElement {
   const { db } = useDatabase()
   const {
     yandexApiKey,
     yandexFolderId,
+    textModel,
     isApiKeyValid,
     isValidating,
     setYandexApiKey,
     setYandexFolderId,
+    setTextModel,
     validateApiKey,
     syncToDatabase,
   } = useSettingsStore()
@@ -177,6 +185,35 @@ export function YandexSettings(): ReactElement {
         >
           {getStatusMessage()}
         </p>
+      )}
+
+      {/* Model Selection - shown when credentials are valid */}
+      {isApiKeyValid === true && (
+        <div>
+          <label
+            htmlFor="yandex-model-select"
+            className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300"
+          >
+            YandexGPT Model
+          </label>
+          <select
+            id="yandex-model-select"
+            value={textModel ?? 'yandexgpt-lite'}
+            onChange={(e): void => {
+              setTextModel(e.target.value)
+            }}
+            className="w-full rounded-lg border border-gray-200 bg-white px-3 py-2 text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white"
+          >
+            {YANDEX_MODELS.map((model) => (
+              <option key={model.id} value={model.id}>
+                {model.name} - {model.description}
+              </option>
+            ))}
+          </select>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Voice transcription uses Yandex SpeechKit (no model selection needed)
+          </p>
+        </div>
       )}
 
       <p className="text-sm text-gray-500 dark:text-gray-400">
