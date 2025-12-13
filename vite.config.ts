@@ -65,5 +65,17 @@ export default defineConfig({
   },
   server: {
     port: 5175,
+    proxy: {
+      '/api/yandex-llm': {
+        target: 'https://llm.api.cloud.yandex.net',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/yandex-llm/, ''),
+      },
+      '/api/yandex-stt': {
+        target: 'https://stt.api.cloud.yandex.net',
+        changeOrigin: true,
+        rewrite: (path) => path.replace(/^\/api\/yandex-stt/, ''),
+      },
+    },
   },
 })

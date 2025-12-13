@@ -43,3 +43,5 @@ Energy levels:
 - high: Requires focus and mental effort
 - medium: Moderate effort required
 - low: Can be done when tired/distracted
+
+Return ONLY the raw JSON object, without any markdown formatting or code blocks.

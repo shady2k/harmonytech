@@ -28,5 +28,6 @@ Guidelines:
 - Thoughts are things to remember but not act on immediately
 - Tags for thoughts should be relevant categories
 - Return empty arrays if no tasks or thoughts are found
+- Return ONLY the raw JSON object, without any markdown formatting or code blocks
 
 User input:

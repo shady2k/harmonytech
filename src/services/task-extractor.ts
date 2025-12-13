@@ -1,4 +1,4 @@
-import { getOpenRouterClient } from './openrouter'
+import { aiService } from './ai'
 import { TASK_EXTRACTION_PROMPT } from '@/lib/ai-prompts'
 
 export interface ExtractedTaskItem {
@@ -86,11 +86,7 @@ function toStringArray(value: unknown): string[] {
   return value.map((item) => toString(item))
 }
 
-export async function extractFromText(
-  text: string,
-  apiKey: string,
-  model: string
-): Promise<ExtractionResult> {
+export async function extractFromText(text: string, model: string): Promise<ExtractionResult> {
   if (text.trim() === '') {
     return {
       tasks: [],
@@ -99,9 +95,11 @@ export async function extractFromText(
     }
   }
 
-  const client = getOpenRouterClient(apiKey)
+  if (!aiService.isAvailable()) {
+    throw new Error('AI service is not available')
+  }
 
-  const response = await client.chat(
+  const response = await aiService.chat(
     [
       {
         role: 'system',
@@ -115,10 +113,11 @@ export async function extractFromText(
     model
   )
 
-  const content = response.choices[0]?.message.content
-  if (!content) {
+  if (response === null || response.content === '') {
     throw new Error('Empty response from AI')
   }
+
+  const content = response.content
 
   const parsed = parseExtractionResponse(content)
 

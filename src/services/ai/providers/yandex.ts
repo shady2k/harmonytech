@@ -4,17 +4,30 @@
  */
 
 import type { AIProvider, AIProviderConfig, ChatMessage, ChatResponse, ContentPart } from '../types'
+import { logger } from '@/lib/logger'
 
-// API endpoints
-const YANDEX_GPT_URL = 'https://llm.api.cloud.yandex.net/foundationModels/v1/completion'
-const YANDEX_STT_URL = 'https://stt.api.cloud.yandex.net/stt/v3/recognizeFileAsync'
-const YANDEX_STT_RESULT_URL = 'https://stt.api.cloud.yandex.net/stt/v3/getRecognition'
+const log = logger.yandex
+
+// API endpoints - use proxy in development to avoid CORS issues
+const isDev = import.meta.env.DEV
+const YANDEX_GPT_URL = isDev
+  ? '/api/yandex-llm/foundationModels/v1/completion'
+  : 'https://llm.api.cloud.yandex.net/foundationModels/v1/completion'
+const YANDEX_STT_URL = isDev
+  ? '/api/yandex-stt/stt/v3/recognizeFileAsync'
+  : 'https://stt.api.cloud.yandex.net/stt/v3/recognizeFileAsync'
+const YANDEX_STT_RESULT_URL = isDev
+  ? '/api/yandex-stt/stt/v3/getRecognition'
+  : 'https://stt.api.cloud.yandex.net/stt/v3/getRecognition'
+const YANDEX_TOKENIZE_URL = isDev
+  ? '/api/yandex-llm/foundationModels/v1/tokenize'
+  : 'https://llm.api.cloud.yandex.net/foundationModels/v1/tokenize'
 
 // Polling configuration
 const STT_POLL_INTERVAL = 1000 // 1 second
 const STT_POLL_TIMEOUT = 30000 // 30 seconds max
 
-interface YandexGPTResponse {
+interface YandexGPTResult {
   alternatives?: {
     message: {
       role: string
@@ -28,6 +41,10 @@ interface YandexGPTResponse {
     totalTokens: string
   }
   modelVersion?: string
+}
+
+interface YandexGPTResponse {
+  result: YandexGPTResult
 }
 
 interface YandexSTTOperationResponse {
@@ -107,21 +124,24 @@ export class YandexProvider implements AIProvider {
     }
 
     const data = (await response.json()) as YandexGPTResponse
+    log.debug('Raw response:', JSON.stringify(data))
+    const result = data.result
 
-    if (data.alternatives === undefined || data.alternatives.length === 0) {
+    if (result.alternatives === undefined || result.alternatives.length === 0) {
+      log.error('Empty response - result:', result)
       throw new Error('YandexGPT returned empty response')
     }
 
-    const alternative = data.alternatives[0]
+    const alternative = result.alternatives[0]
 
     return {
       id: `yandex-${String(Date.now())}`,
       content: alternative.message.text,
-      usage: data.usage
+      usage: result.usage
         ? {
-            promptTokens: parseInt(data.usage.inputTextTokens, 10) || 0,
-            completionTokens: parseInt(data.usage.completionTokens, 10) || 0,
-            totalTokens: parseInt(data.usage.totalTokens, 10) || 0,
+            promptTokens: parseInt(result.usage.inputTextTokens, 10) || 0,
+            completionTokens: parseInt(result.usage.completionTokens, 10) || 0,
+            totalTokens: parseInt(result.usage.totalTokens, 10) || 0,
           }
         : undefined,
     }
@@ -288,21 +308,18 @@ export class YandexProvider implements AIProvider {
 
     try {
       // Use tokenize endpoint for lightweight validation
-      const response = await fetch(
-        'https://llm.api.cloud.yandex.net/foundationModels/v1/tokenize',
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            Authorization: `Api-Key ${this.apiKey}`,
-            'x-folder-id': this.folderId,
-          },
-          body: JSON.stringify({
-            modelUri: `gpt://${this.folderId}/yandexgpt-lite`,
-            text: 'test',
-          }),
-        }
-      )
+      const response = await fetch(YANDEX_TOKENIZE_URL, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          Authorization: `Api-Key ${this.apiKey}`,
+          'x-folder-id': this.folderId,
+        },
+        body: JSON.stringify({
+          modelUri: `gpt://${this.folderId}/yandexgpt-lite`,
+          text: 'test',
+        }),
+      })
 
       this.available = response.ok
       return response.ok

@@ -44,6 +44,8 @@ export function AIStatusProvider({ children }: AIStatusProviderProps): React.JSX
     if (aiProvider === 'openrouter' && apiKey !== null && apiKey !== '') {
       const provider = createProvider('openrouter', { apiKey })
       aiService.setProvider(provider)
+      // Validate in background to set availability
+      void provider.validateKey()
     } else if (
       aiProvider === 'yandex' &&
       yandexApiKey !== null &&
@@ -56,6 +58,8 @@ export function AIStatusProvider({ children }: AIStatusProviderProps): React.JSX
         folderId: yandexFolderId,
       })
       aiService.setProvider(provider)
+      // Validate in background to set availability
+      void provider.validateKey()
     } else {
       aiService.setProvider(null)
     }

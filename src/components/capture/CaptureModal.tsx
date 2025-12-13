@@ -1,9 +1,8 @@
-import { useEffect, useCallback, type ReactElement } from 'react'
+import { useEffect, useCallback, useRef, type ReactElement } from 'react'
 import { useCaptureStore, type ProcessingState } from '@/stores'
 import { TextCapture } from './TextCapture'
 import { VoiceCapture } from './VoiceCapture'
 import { ProcessingIndicator } from './ProcessingIndicator'
-import { SuggestionReview } from './SuggestionReview'
 import { NavIcon } from '@/components/layout/NavIcon'
 
 interface CaptureModalProps {
@@ -14,6 +13,7 @@ interface CaptureModalProps {
 
 export function CaptureModal({ isOpen, onClose, onSave }: CaptureModalProps): ReactElement | null {
   const { processingState, isRecording, extractedItems, reset } = useCaptureStore()
+  const hasSavedRef = useRef(false)
 
   const handleClose = useCallback((): void => {
     reset()
@@ -24,6 +24,21 @@ export function CaptureModal({ isOpen, onClose, onSave }: CaptureModalProps): Re
     onSave()
     handleClose()
   }, [onSave, handleClose])
+
+  // Auto-save when processing is done - no approval needed per spec
+  useEffect(() => {
+    if (processingState === 'done' && extractedItems !== null && !hasSavedRef.current) {
+      hasSavedRef.current = true
+      handleSave()
+    }
+  }, [processingState, extractedItems, handleSave])
+
+  // Reset the saved flag when modal opens
+  useEffect(() => {
+    if (isOpen) {
+      hasSavedRef.current = false
+    }
+  }, [isOpen])
 
   // Handle escape key
   useEffect(() => {
@@ -60,13 +75,8 @@ export function CaptureModal({ isOpen, onClose, onSave }: CaptureModalProps): Re
   if (!isOpen) return null
 
   const renderContent = (): ReactElement => {
-    // Show suggestion review if we have extracted items and processing is done
-    if (processingState === 'done' && extractedItems !== null) {
-      return <SuggestionReview onSave={handleSave} onCancel={handleClose} />
-    }
-
-    // Show processing indicator during AI processing
-    if (isProcessing(processingState)) {
+    // Show processing indicator during AI processing (including 'done' state briefly before auto-save)
+    if (isProcessing(processingState) || processingState === 'done') {
       return <ProcessingIndicator state={processingState} />
     }
 
@@ -111,7 +121,7 @@ export function CaptureModal({ isOpen, onClose, onSave }: CaptureModalProps): Re
             id="capture-modal-title"
             className="text-lg font-semibold text-gray-900 dark:text-white"
           >
-            {getModalTitle(processingState, extractedItems !== null)}
+            {getModalTitle(processingState)}
           </h2>
           <button
             type="button"
@@ -135,9 +145,9 @@ function isProcessing(state: ProcessingState): boolean {
   return state === 'transcribing' || state === 'extracting' || state === 'suggesting'
 }
 
-function getModalTitle(state: ProcessingState, hasItems: boolean): string {
-  if (state === 'done' && hasItems) {
-    return 'Review & Save'
+function getModalTitle(state: ProcessingState): string {
+  if (state === 'done') {
+    return 'Saving...'
   }
   if (isProcessing(state)) {
     return 'Processing...'

@@ -295,8 +295,8 @@ Next steps:
 
 **If directory already exists**:
 - This is OK - proceed with writing files
-- Existing files will be overwritten (user initiated PRD generation)
-- If unsure: Ask user "Project `{name}` already exists. Overwrite PRD files?"
+- Existing files will be overwritten automatically (user initiated PRD generation)
+- Do NOT ask for confirmation - just save
 
 ## Quality Validation
 

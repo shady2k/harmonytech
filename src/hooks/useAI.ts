@@ -76,8 +76,8 @@ export function useAI(): UseAIReturn {
 
   const extractTasks = useCallback(
     async (text: string): Promise<ExtractionResult> => {
-      if (apiKey === null || apiKey === '') {
-        throw new Error('API key not configured')
+      if (!aiService.isAvailable()) {
+        throw new Error('AI service not configured')
       }
 
       if (textModel === null || textModel === '') {
@@ -88,7 +88,7 @@ export function useAI(): UseAIReturn {
       setError(null)
 
       try {
-        const result = await extractFromText(text, apiKey, textModel)
+        const result = await extractFromText(text, textModel)
         return result
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to extract tasks'
@@ -98,7 +98,7 @@ export function useAI(): UseAIReturn {
         setIsProcessing(false)
       }
     },
-    [apiKey, textModel]
+    [textModel]
   )
 
   const processVoice = useCallback(
@@ -130,15 +130,15 @@ export function useAI(): UseAIReturn {
 
   const suggestTaskProperties = useCallback(
     async (taskText: string, existingProjects: string[] = []): Promise<PropertySuggestions> => {
-      if (apiKey === null || apiKey === '') {
-        throw new Error('API key not configured')
+      if (!aiService.isAvailable() || textModel === null || textModel === '') {
+        throw new Error('AI service not configured')
       }
 
       setIsProcessing(true)
       setError(null)
 
       try {
-        const result = await suggestProperties(taskText, existingProjects, apiKey)
+        const result = await suggestProperties(taskText, existingProjects, textModel)
         return result
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to suggest properties'
@@ -148,7 +148,7 @@ export function useAI(): UseAIReturn {
         setIsProcessing(false)
       }
     },
-    [apiKey]
+    [textModel]
   )
 
   return {

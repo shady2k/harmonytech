@@ -7,10 +7,14 @@
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useDatabaseContext } from '@/contexts/DatabaseContext'
 import { useSettingsStore } from '@/stores/settings.store'
+import { aiService } from '@/services/ai'
 import { extractFromText } from '@/services/task-extractor'
 import { suggestProperties } from '@/services/property-suggester'
+import { logger } from '@/lib/logger'
 import type { Thought } from '@/types/thought'
 import type { ThoughtDocument } from '@/lib/database'
+
+const log = logger.backgroundAI
 
 const PROCESS_INTERVAL_MS = 5000 // Check every 5 seconds
 const BATCH_SIZE = 3 // Process up to 3 thoughts at a time
@@ -24,7 +28,7 @@ interface BackgroundAIState {
 
 export function useBackgroundAI(): BackgroundAIState {
   const { db } = useDatabaseContext()
-  const { apiKey, textModel, aiProvider, getActiveApiKey, isApiKeyValid } = useSettingsStore()
+  const { textModel } = useSettingsStore()
   const isProcessingRef = useRef(false)
   const [state, setState] = useState<BackgroundAIState>({
     pendingCount: 0,
@@ -47,35 +51,7 @@ export function useBackgroundAI(): BackgroundAIState {
       setState((prev) => ({ ...prev, isProcessing: true }))
 
       try {
-        const activeKey = getActiveApiKey()
-        // Skip if AI is not available
-        if (
-          activeKey === null ||
-          activeKey === '' ||
-          textModel === null ||
-          textModel === '' ||
-          isApiKeyValid !== true
-        ) {
-          // Count pending thoughts even when AI is unavailable
-          const pendingThoughts = await db.thoughts
-            .find({
-              selector: { aiProcessed: false },
-            })
-            .exec()
-          setState((prev) => ({
-            ...prev,
-            pendingCount: pendingThoughts.length,
-            isProcessing: false,
-          }))
-          return
-        }
-
-        // Only process with OpenRouter for now (Yandex not implemented)
-        if (aiProvider !== 'openrouter') {
-          return
-        }
-
-        // Find unprocessed thoughts
+        // First check if there are any unprocessed thoughts
         const unprocessedThoughts = await db.thoughts
           .find({
             selector: {
@@ -87,14 +63,21 @@ export function useBackgroundAI(): BackgroundAIState {
 
         setState((prev) => ({ ...prev, pendingCount: unprocessedThoughts.length }))
 
+        // No work to do
         if (unprocessedThoughts.length === 0) {
+          return
+        }
+
+        // Only check AI availability when there's work to do
+        if (!aiService.isAvailable() || textModel === null || textModel === '') {
+          log.debug('AI not available, skipping', unprocessedThoughts.length, 'thoughts')
           return
         }
 
         // Process each thought with throttling to avoid API spam
         for (let i = 0; i < unprocessedThoughts.length; i++) {
           const thoughtDoc = unprocessedThoughts[i]
-          await processThought(thoughtDoc, activeKey, textModel)
+          await processThought(thoughtDoc, textModel)
           setState((prev) => ({
             ...prev,
             pendingCount: Math.max(0, prev.pendingCount - 1),
@@ -114,17 +97,15 @@ export function useBackgroundAI(): BackgroundAIState {
       }
     }
 
-    const processThought = async (
-      thoughtDoc: ThoughtDocument,
-      apiKey: string,
-      model: string
-    ): Promise<void> => {
+    const processThought = async (thoughtDoc: ThoughtDocument, model: string): Promise<void> => {
       const thought = thoughtDoc.toJSON() as Thought
       const now = new Date().toISOString()
 
       try {
         // Extract tasks from thought content
-        const result = await extractFromText(thought.content, apiKey, model)
+        log.debug('Processing thought:', thought.content)
+        const result = await extractFromText(thought.content, model)
+        log.debug('Extraction result:', result)
 
         if (result.tasks.length === 0) {
           // No tasks found, just mark as processed
@@ -149,7 +130,7 @@ export function useBackgroundAI(): BackgroundAIState {
           let project: string | undefined
 
           try {
-            const suggestions = await suggestProperties(extractedTask.nextAction, [], apiKey)
+            const suggestions = await suggestProperties(extractedTask.nextAction, [], model)
             context = suggestions.context.value
             energy = suggestions.energy.value
             timeEstimate = suggestions.timeEstimate.value
@@ -181,8 +162,9 @@ export function useBackgroundAI(): BackgroundAIState {
           aiProcessed: true,
           updatedAt: now,
         })
-      } catch {
+      } catch (err) {
         // Mark as processed to avoid infinite retry loop
+        log.error('Error processing thought:', err)
         await thoughtDoc.patch({
           aiProcessed: true,
           updatedAt: now,
@@ -201,7 +183,7 @@ export function useBackgroundAI(): BackgroundAIState {
     return (): void => {
       clearInterval(intervalId)
     }
-  }, [db, apiKey, textModel, aiProvider, getActiveApiKey, isApiKeyValid, delay])
+  }, [db, textModel, delay])
 
   return state
 }

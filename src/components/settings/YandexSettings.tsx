@@ -216,19 +216,33 @@ export function YandexSettings(): ReactElement {
         </div>
       )}
 
-      <p className="text-sm text-gray-500 dark:text-gray-400">
-        Get your API key from{' '}
-        <a
-          href="https://console.cloud.yandex.com/folders"
-          target="_blank"
-          rel="noopener noreferrer"
-          className="text-indigo-600 hover:underline dark:text-indigo-400"
-        >
-          Yandex Cloud Console
-        </a>
-        . You&apos;ll need an API key and the Folder ID where your resources are located. Your
-        credentials are stored locally and never sent to our servers.
-      </p>
+      <div className="space-y-2 text-sm text-gray-500 dark:text-gray-400">
+        <p>
+          Get your API key from{' '}
+          <a
+            href="https://console.cloud.yandex.com/folders"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-indigo-600 hover:underline dark:text-indigo-400"
+          >
+            Yandex Cloud Console
+          </a>
+          . You&apos;ll need an API key and the Folder ID where your resources are located. Your
+          credentials are stored locally and never sent to our servers.
+        </p>
+        <p>
+          <strong className="text-gray-700 dark:text-gray-300">Required IAM roles:</strong> Assign
+          these roles to your service account on the folder:{' '}
+          <code className="rounded bg-gray-100 px-1 py-0.5 text-xs dark:bg-gray-800">
+            ai.languageModels.user
+          </code>{' '}
+          (for YandexGPT) and{' '}
+          <code className="rounded bg-gray-100 px-1 py-0.5 text-xs dark:bg-gray-800">
+            ai.speechkit-stt.user
+          </code>{' '}
+          (for voice transcription).
+        </p>
+      </div>
 
       <div className="flex gap-2">
         <Button

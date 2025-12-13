@@ -4,6 +4,11 @@ import type { AIProviderType, Settings, Theme } from '@/types/settings'
 import type { HarmonyTechDatabase } from '@/lib/database'
 import type { RxDocument } from 'rxdb'
 
+// Use proxy in development to avoid CORS issues
+const YANDEX_TOKENIZE_URL = import.meta.env.DEV
+  ? '/api/yandex-llm/foundationModels/v1/tokenize'
+  : 'https://llm.api.cloud.yandex.net/foundationModels/v1/tokenize'
+
 interface SettingsState {
   // AI Provider settings
   aiProvider: AIProviderType
@@ -140,22 +145,19 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
           controller.abort()
         }, 10000)
 
-        const response = await fetch(
-          'https://llm.api.cloud.yandex.net/foundationModels/v1/tokenize',
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-              Authorization: `Api-Key ${yandexApiKey}`,
-              'x-folder-id': yandexFolderId,
-            },
-            body: JSON.stringify({
-              modelUri: `gpt://${yandexFolderId}/yandexgpt-lite`,
-              text: 'test',
-            }),
-            signal: controller.signal,
-          }
-        )
+        const response = await fetch(YANDEX_TOKENIZE_URL, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            Authorization: `Api-Key ${yandexApiKey}`,
+            'x-folder-id': yandexFolderId,
+          },
+          body: JSON.stringify({
+            modelUri: `gpt://${yandexFolderId}/yandexgpt-lite`,
+            text: 'test',
+          }),
+          signal: controller.signal,
+        })
 
         clearTimeout(timeoutId)
         const isValid = response.ok

@@ -1,4 +1,4 @@
-import { getOpenRouterClient } from './openrouter'
+import { aiService } from './ai'
 import { PROPERTY_SUGGESTION_PROMPT } from '@/lib/ai-prompts'
 import type { TaskContext, TaskEnergy } from '@/types/task'
 
@@ -129,17 +129,18 @@ function parseSuggestionResponse(content: string): AISuggestionResponse {
 export async function suggestProperties(
   taskText: string,
   existingProjects: string[],
-  apiKey: string,
-  model = 'anthropic/claude-3.5-sonnet'
+  model: string
 ): Promise<PropertySuggestions> {
   const prompt = PROPERTY_SUGGESTION_PROMPT.replace('{taskText}', taskText).replace(
     '{projects}',
     existingProjects.length > 0 ? existingProjects.join(', ') : 'none'
   )
 
-  const client = getOpenRouterClient(apiKey)
+  if (!aiService.isAvailable()) {
+    throw new Error('AI service is not available')
+  }
 
-  const response = await client.chat(
+  const response = await aiService.chat(
     [
       {
         role: 'user',
@@ -149,10 +150,11 @@ export async function suggestProperties(
     model
   )
 
-  const content = response.choices[0]?.message.content
-  if (!content) {
+  if (response === null || response.content === '') {
     throw new Error('Empty response from AI')
   }
+
+  const content = response.content
 
   const parsed = parseSuggestionResponse(content)
 
