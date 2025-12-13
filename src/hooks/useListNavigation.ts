@@ -2,7 +2,7 @@
  * Hook for keyboard list navigation (j/k navigation)
  */
 
-import { useState, useCallback, useEffect } from 'react'
+import { useState, useCallback } from 'react'
 
 interface UseListNavigationOptions<T> {
   items: T[]
@@ -28,12 +28,16 @@ export function useListNavigation<T>({
 }: UseListNavigationOptions<T>): UseListNavigationReturn<T> {
   const [selectedIndex, setSelectedIndex] = useState(-1)
 
-  // Reset selection when items change
-  useEffect(() => {
-    if (selectedIndex >= items.length) {
-      setSelectedIndex(items.length > 0 ? 0 : -1)
-    }
-  }, [items.length, selectedIndex])
+  // Compute the effective selected index based on items length
+  // This avoids setState inside useEffect which causes cascading renders
+  const effectiveSelectedIndex =
+    selectedIndex >= items.length ? (items.length > 0 ? 0 : -1) : selectedIndex
+
+  // Reset selectedIndex state when it becomes invalid
+  // Using a ref to track if we need to reset prevents infinite loops
+  if (selectedIndex >= items.length && selectedIndex !== effectiveSelectedIndex) {
+    setSelectedIndex(effectiveSelectedIndex)
+  }
 
   const selectNext = useCallback(() => {
     if (!enabled || items.length === 0) return
@@ -76,10 +80,12 @@ export function useListNavigation<T>({
   }, [])
 
   const selectedItem =
-    selectedIndex >= 0 && selectedIndex < items.length ? items[selectedIndex] : null
+    effectiveSelectedIndex >= 0 && effectiveSelectedIndex < items.length
+      ? items[effectiveSelectedIndex]
+      : null
 
   return {
-    selectedIndex,
+    selectedIndex: effectiveSelectedIndex,
     selectedItem,
     selectNext,
     selectPrev,

@@ -1,5 +1,5 @@
 import type { ReactElement } from 'react'
-import { useAIStatus } from '@/contexts/AIStatusContext'
+import { useAIStatus } from '@/hooks/useAIStatus'
 import { useSettingsStore } from '@/stores'
 import { NavIcon } from './NavIcon'
 

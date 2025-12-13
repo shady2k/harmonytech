@@ -4,7 +4,7 @@ import { useUIStore } from '@/stores/ui.store'
 import type { TaskContext, TaskEnergy } from '@/types/task'
 import type { Project } from '@/types/project'
 import { Badge } from '@/components/ui/Badge'
-import { CONTEXT_CONFIG } from '@/components/ui/ContextBadge'
+import { CONTEXT_CONFIG } from '@/lib/context-config'
 
 interface TaskFiltersProps {
   className?: string

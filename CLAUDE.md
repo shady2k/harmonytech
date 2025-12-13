@@ -1,3 +1,13 @@
+# HarmonyTech Development Guidelines
+
+## Fundamental Rules
+
+1. **No eslint rule ignores** - Never use eslint-disable comments. Fix the underlying issue instead.
+2. **Pre-commit checks** - Always run `npm run lint` and `npm run build` before committing. Both must pass with zero errors and zero warnings.
+3. **No hardcoding** - Use configuration files, environment variables, or constants. Never hardcode values that may change.
+4. **No unnecessary fallbacks** - Avoid defensive coding that masks problems. Don't add backwards compatibility shims unless explicitly required.
+5. **Data integrity is paramount** - Data cannot be lost or corrupted. All data operations must be atomic or properly recoverable.
+
 <!-- CLAVIX:START -->
 ## Clavix Integration
 

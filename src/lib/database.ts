@@ -3,7 +3,6 @@ import { createRxDatabase, addRxPlugin } from 'rxdb'
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie'
 import { RxDBDevModePlugin } from 'rxdb/plugins/dev-mode'
 import { RxDBQueryBuilderPlugin } from 'rxdb/plugins/query-builder'
-import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema'
 import { RxDBUpdatePlugin } from 'rxdb/plugins/update'
 import { RxDBLeaderElectionPlugin } from 'rxdb/plugins/leader-election'
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv'
@@ -29,13 +28,14 @@ import {
   type SettingsCollection,
   type SettingsDocument,
 } from '@/lib/schemas/settings.schema'
+import { getCurrentDbName } from '@/lib/migration/version-manager'
 
 // Add plugins
 if (import.meta.env.DEV) {
   addRxPlugin(RxDBDevModePlugin)
 }
 addRxPlugin(RxDBQueryBuilderPlugin)
-addRxPlugin(RxDBMigrationSchemaPlugin)
+// Note: RxDBMigrationSchemaPlugin removed - we use shadow migration instead
 addRxPlugin(RxDBUpdatePlugin)
 addRxPlugin(RxDBLeaderElectionPlugin)
 
@@ -58,86 +58,47 @@ export interface DatabaseCollections {
 
 export type HarmonyTechDatabase = RxDatabase<DatabaseCollections>
 
-let dbPromise: Promise<HarmonyTechDatabase> | null = null
+// Database instance cache - keyed by database name
+const dbCache = new Map<string, Promise<HarmonyTechDatabase>>()
 
-export async function getDatabase(): Promise<HarmonyTechDatabase> {
-  dbPromise ??= createDatabase()
+/**
+ * Gets or creates a database with the specified name.
+ * If no name is provided, uses the current active database name from version manager.
+ */
+export async function getDatabase(dbName?: string): Promise<HarmonyTechDatabase> {
+  const name = dbName ?? getCurrentDbName()
+
+  let dbPromise = dbCache.get(name)
+  if (dbPromise === undefined) {
+    dbPromise = createDatabaseWithName(name)
+    dbCache.set(name, dbPromise)
+  }
+
   return dbPromise
 }
 
-// Clear corrupted database (used for recovery from migration errors)
-async function clearDatabase(): Promise<void> {
-  const databases = await indexedDB.databases()
-  const harmonyDbs = databases.filter(
-    (db): db is IDBDatabaseInfo & { name: string } => db.name?.startsWith('harmonytech') === true
-  )
-  await Promise.all(
-    harmonyDbs.map(
-      (db) =>
-        new Promise<void>((resolve, reject) => {
-          const request = indexedDB.deleteDatabase(db.name)
-          request.onsuccess = (): void => {
-            resolve()
-          }
-          request.onerror = (): void => {
-            reject(new Error(`Failed to delete database: ${db.name}`))
-          }
-        })
-    )
-  )
+/**
+ * Resets the database cache. Call after migration to use the new database.
+ */
+export function resetDatabaseCache(): void {
+  dbCache.clear()
 }
 
-async function createDatabase(): Promise<HarmonyTechDatabase> {
-  try {
-    return await createDatabaseInternal()
-  } catch (error) {
-    // Handle corrupted database state (e.g., "more than one old collection meta found")
-    const errorMessage = error instanceof Error ? error.message : String(error)
-    if (
-      errorMessage.includes('more than one old collection') ||
-      errorMessage.includes('migration')
-    ) {
-      await clearDatabase()
-      return await createDatabaseInternal()
-    }
-    throw error
-  }
-}
-
-async function createDatabaseInternal(): Promise<HarmonyTechDatabase> {
+async function createDatabaseWithName(dbName: string): Promise<HarmonyTechDatabase> {
   const db = await createRxDatabase<DatabaseCollections>({
-    name: 'harmonytech',
+    name: dbName,
     storage: getStorage(),
     ignoreDuplicate: true,
   })
 
-  // Add collections with schemas
+  // Add collections with schemas - NO migration strategies
+  // Shadow migration handles data transformation separately
   await db.addCollections({
     tasks: {
       schema: taskSchema,
-      migrationStrategies: {
-        1: (oldDoc: Record<string, unknown>) => ({
-          ...oldDoc,
-          sourceThoughtId:
-            typeof oldDoc['sourceThoughtId'] === 'string' ? oldDoc['sourceThoughtId'] : '',
-        }),
-        // v2: Make sourceThoughtId required with default '' (dexie.js requires indexed fields to be required)
-        2: (oldDoc: Record<string, unknown>) => ({
-          ...oldDoc,
-          sourceThoughtId:
-            typeof oldDoc['sourceThoughtId'] === 'string' ? oldDoc['sourceThoughtId'] : '',
-        }),
-      },
     },
     thoughts: {
       schema: thoughtSchema,
-      migrationStrategies: {
-        1: (oldDoc: Record<string, unknown>) => ({
-          ...oldDoc,
-          linkedTaskIds: [],
-          aiProcessed: true, // Existing thoughts are considered already processed
-        }),
-      },
     },
     voice_recordings: {
       schema: voiceRecordingSchema,
@@ -147,12 +108,6 @@ async function createDatabaseInternal(): Promise<HarmonyTechDatabase> {
     },
     settings: {
       schema: settingsSchema,
-      migrationStrategies: {
-        1: (oldDoc: Record<string, unknown>) => ({
-          ...oldDoc,
-          aiProvider: 'openrouter',
-        }),
-      },
     },
   })
 

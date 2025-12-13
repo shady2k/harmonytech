@@ -40,7 +40,7 @@ function documentToThought(doc: RxDocument<Thought>): Thought {
     updatedAt: data.updatedAt,
     sourceRecordingId: data.sourceRecordingId,
     linkedTaskIds,
-    aiProcessed: data.aiProcessed ?? true,
+    aiProcessed: data.aiProcessed,
   }
 }
 
@@ -93,8 +93,8 @@ export function useThoughts(): UseThoughtsReturn {
       const newThought: Thought = {
         ...thoughtData,
         id: generateId(),
-        linkedTaskIds: thoughtData.linkedTaskIds ?? [],
-        aiProcessed: thoughtData.aiProcessed ?? false,
+        linkedTaskIds: thoughtData.linkedTaskIds,
+        aiProcessed: thoughtData.aiProcessed,
         createdAt: now,
         updatedAt: now,
       }

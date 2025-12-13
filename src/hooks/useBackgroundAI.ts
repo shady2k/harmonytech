@@ -49,7 +49,13 @@ export function useBackgroundAI(): BackgroundAIState {
       try {
         const activeKey = getActiveApiKey()
         // Skip if AI is not available
-        if (!activeKey || !textModel || !isApiKeyValid) {
+        if (
+          activeKey === null ||
+          activeKey === '' ||
+          textModel === null ||
+          textModel === '' ||
+          isApiKeyValid !== true
+        ) {
           // Count pending thoughts even when AI is unavailable
           const pendingThoughts = await db.thoughts
             .find({
@@ -100,8 +106,8 @@ export function useBackgroundAI(): BackgroundAIState {
             await delay(THROTTLE_DELAY_MS)
           }
         }
-      } catch (error) {
-        console.error('Background AI processing error:', error)
+      } catch {
+        // Silently handle background processing errors
       } finally {
         isProcessingRef.current = false
         setState((prev) => ({ ...prev, isProcessing: false }))
@@ -133,7 +139,7 @@ export function useBackgroundAI(): BackgroundAIState {
         const taskIds: string[] = []
 
         for (const extractedTask of result.tasks) {
-          const taskId = `task-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`
+          const taskId = `task-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`
           taskIds.push(taskId)
 
           // Get AI suggestions for task properties
@@ -153,7 +159,7 @@ export function useBackgroundAI(): BackgroundAIState {
           }
 
           // Create the task
-          await db?.tasks.insert({
+          await db.tasks.insert({
             id: taskId,
             rawInput: extractedTask.rawInput,
             nextAction: extractedTask.nextAction,
@@ -175,10 +181,8 @@ export function useBackgroundAI(): BackgroundAIState {
           aiProcessed: true,
           updatedAt: now,
         })
-      } catch (error) {
-        console.error(`Failed to process thought ${thought.id}:`, error)
+      } catch {
         // Mark as processed to avoid infinite retry loop
-        // In the future, we could add a retry count
         await thoughtDoc.patch({
           aiProcessed: true,
           updatedAt: now,
@@ -194,7 +198,7 @@ export function useBackgroundAI(): BackgroundAIState {
       void processUnprocessedThoughts()
     }, PROCESS_INTERVAL_MS)
 
-    return () => {
+    return (): void => {
       clearInterval(intervalId)
     }
   }, [db, apiKey, textModel, aiProvider, getActiveApiKey, isApiKeyValid, delay])

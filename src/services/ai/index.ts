@@ -23,7 +23,7 @@ export function createProvider(type: ProviderType, config: AIProviderConfig): AI
       return new YandexProvider(config)
     default: {
       const exhaustiveCheck: never = type
-      throw new Error(`Unknown provider type: ${exhaustiveCheck}`)
+      throw new Error(`Unknown provider type: ${String(exhaustiveCheck)}`)
     }
   }
 }

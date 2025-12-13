@@ -33,7 +33,7 @@ export class AIService {
    * Check if AI is currently available
    */
   isAvailable(): boolean {
-    return this.provider !== null && this.provider.isAvailable()
+    return this.provider?.isAvailable() === true
   }
 
   /**
@@ -41,7 +41,7 @@ export class AIService {
    * Returns null if no provider is available
    */
   async chat(messages: ChatMessage[], model: string): Promise<ChatResponse | null> {
-    if (!this.provider?.isAvailable()) {
+    if (this.provider?.isAvailable() !== true) {
       return null
     }
 
@@ -58,7 +58,7 @@ export class AIService {
     prompt: string,
     model: string
   ): Promise<ChatResponse | null> {
-    if (!this.provider?.isAvailable()) {
+    if (this.provider?.isAvailable() !== true) {
       return null
     }
 

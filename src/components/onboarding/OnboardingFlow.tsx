@@ -2,6 +2,7 @@ import { type ReactElement, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/Button'
 import { ApiKeySetup } from '@/components/settings/ApiKeySetup'
 import { useSettingsStore } from '@/stores'
+import { markOnboardingComplete } from '@/lib/onboarding'
 
 interface OnboardingFlowProps {
   onComplete: () => void
@@ -9,16 +10,6 @@ interface OnboardingFlowProps {
 }
 
 type OnboardingStep = 'welcome' | 'api-key' | 'tutorial' | 'done'
-
-const ONBOARDING_STORAGE_KEY = 'harmonytech-onboarding-completed'
-
-export function hasCompletedOnboarding(): boolean {
-  return localStorage.getItem(ONBOARDING_STORAGE_KEY) === 'true'
-}
-
-export function markOnboardingComplete(): void {
-  localStorage.setItem(ONBOARDING_STORAGE_KEY, 'true')
-}
 
 export function OnboardingFlow({ onComplete, className = '' }: OnboardingFlowProps): ReactElement {
   const [step, setStep] = useState<OnboardingStep>('welcome')

@@ -189,9 +189,9 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   loadFromDatabase: async (db): Promise<void> => {
     try {
       const settingsDoc = await db.settings.findOne('user-settings').exec()
-      if (settingsDoc) {
+      if (settingsDoc !== null) {
         set({
-          aiProvider: settingsDoc.aiProvider ?? 'openrouter',
+          aiProvider: settingsDoc.aiProvider,
           apiKey: settingsDoc.openRouterApiKey ?? null,
           yandexApiKey: settingsDoc.yandexApiKey ?? null,
           yandexFolderId: settingsDoc.yandexFolderId ?? null,
@@ -248,9 +248,9 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   subscribeToDatabase: (db): (() => void) => {
     const subscription = db.settings.findOne('user-settings').$.subscribe({
       next: (settingsDoc: RxDocument<Settings> | null): void => {
-        if (settingsDoc) {
+        if (settingsDoc !== null) {
           set({
-            aiProvider: settingsDoc.aiProvider ?? 'openrouter',
+            aiProvider: settingsDoc.aiProvider,
             apiKey: settingsDoc.openRouterApiKey ?? null,
             yandexApiKey: settingsDoc.yandexApiKey ?? null,
             yandexFolderId: settingsDoc.yandexFolderId ?? null,

@@ -255,8 +255,8 @@ export class YandexProvider implements AIProvider {
           const result = JSON.parse(line) as YandexSTTRecognitionResponse
 
           // Prefer normalized text (with literatureText formatting)
-          const normalizedText = result.finalRefinement?.normalizedText?.alternatives?.[0]?.text
-          const finalText = result.final?.alternatives?.[0]?.text
+          const normalizedText = result.finalRefinement?.normalizedText?.alternatives[0]?.text
+          const finalText = result.final?.alternatives[0]?.text
 
           if (normalizedText !== undefined && normalizedText !== '') {
             transcriptParts.push(normalizedText)

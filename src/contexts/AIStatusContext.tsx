@@ -1,15 +1,7 @@
-import React, { createContext, useContext, useEffect, useMemo, type ReactNode } from 'react'
+import React, { useEffect, useMemo, type ReactNode } from 'react'
 import { useSettingsStore } from '@/stores'
 import { aiService, createProvider } from '@/services/ai'
-import type { AIProviderType } from '@/types/settings'
-
-interface AIStatusContextValue {
-  isAIAvailable: boolean
-  aiProvider: AIProviderType
-  aiError: string | null
-}
-
-const AIStatusContext = createContext<AIStatusContextValue | null>(null)
+import { AIStatusContext } from './ai-status.context'
 
 interface AIStatusProviderProps {
   children: ReactNode
@@ -80,12 +72,4 @@ export function AIStatusProvider({ children }: AIStatusProviderProps): React.JSX
       {children}
     </AIStatusContext.Provider>
   )
-}
-
-export function useAIStatus(): AIStatusContextValue {
-  const context = useContext(AIStatusContext)
-  if (!context) {
-    throw new Error('useAIStatus must be used within an AIStatusProvider')
-  }
-  return context
 }
