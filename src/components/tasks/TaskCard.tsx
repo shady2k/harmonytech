@@ -49,6 +49,28 @@ function isOverdue(deadline: string): boolean {
   return new Date(deadline) < new Date()
 }
 
+function formatScheduledDate(dateStr: string): string {
+  const date = new Date(dateStr)
+  const now = new Date()
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
+  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000)
+  const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate())
+
+  const timeStr = date.toLocaleTimeString('en-US', {
+    hour: 'numeric',
+    minute: '2-digit',
+    hour12: true,
+  })
+
+  if (dateOnly.getTime() === today.getTime()) {
+    return `Today ${timeStr}`
+  }
+  if (dateOnly.getTime() === tomorrow.getTime()) {
+    return `Tomorrow ${timeStr}`
+  }
+  return `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${timeStr}`
+}
+
 export function TaskCard({
   task,
   onToggleComplete,
@@ -151,6 +173,22 @@ export function TaskCard({
                   />
                 </svg>
                 {formatTimeEstimate(task.timeEstimate)}
+              </span>
+            )}
+
+            {/* Scheduled time */}
+            {task.scheduledStart !== undefined && (
+              <span className="flex items-center gap-1 text-xs text-indigo-600 dark:text-indigo-400">
+                <svg className="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                  <path
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                    strokeWidth={2}
+                    d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                  />
+                </svg>
+                {formatScheduledDate(task.scheduledStart)}
+                {task.scheduledEnd !== undefined && ` - ${formatScheduledDate(task.scheduledEnd)}`}
               </span>
             )}
 

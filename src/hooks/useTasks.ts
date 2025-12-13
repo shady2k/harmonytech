@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { useDatabaseContext } from '@/contexts/DatabaseContext'
 import { useUIStore, type TaskFilters } from '@/stores/ui.store'
-import type { Task, AISuggestions, Recurrence } from '@/types/task'
+import type { Task } from '@/types/task'
 import type { RxDocument } from 'rxdb'
 import { createNextInstance } from '@/services/recurrence'
 
@@ -22,59 +22,9 @@ function generateId(): string {
 }
 
 function documentToTask(doc: RxDocument<Task>): Task {
-  const data = doc.toJSON()
-
-  // Deep clone to convert DeepReadonly types to mutable types
-  const aiSuggestions: AISuggestions | undefined = data.aiSuggestions
-    ? {
-        suggestedContext: data.aiSuggestions.suggestedContext,
-        suggestedEnergy: data.aiSuggestions.suggestedEnergy,
-        suggestedTimeEstimate: data.aiSuggestions.suggestedTimeEstimate,
-        suggestedProject: data.aiSuggestions.suggestedProject,
-        confidence: data.aiSuggestions.confidence,
-        alternatives: data.aiSuggestions.alternatives
-          ? {
-              context: data.aiSuggestions.alternatives.context
-                ? [...data.aiSuggestions.alternatives.context]
-                : undefined,
-              energy: data.aiSuggestions.alternatives.energy
-                ? [...data.aiSuggestions.alternatives.energy]
-                : undefined,
-              timeEstimate: data.aiSuggestions.alternatives.timeEstimate
-                ? [...data.aiSuggestions.alternatives.timeEstimate]
-                : undefined,
-            }
-          : undefined,
-      }
-    : undefined
-
-  const recurrence: Recurrence | undefined = data.recurrence
-    ? {
-        pattern: data.recurrence.pattern,
-        interval: data.recurrence.interval,
-        daysOfWeek: data.recurrence.daysOfWeek ? [...data.recurrence.daysOfWeek] : undefined,
-        dayOfMonth: data.recurrence.dayOfMonth,
-        endDate: data.recurrence.endDate,
-      }
-    : undefined
-
-  return {
-    id: data.id,
-    rawInput: data.rawInput,
-    nextAction: data.nextAction,
-    context: data.context,
-    energy: data.energy,
-    timeEstimate: data.timeEstimate,
-    deadline: data.deadline,
-    project: data.project,
-    isSomedayMaybe: data.isSomedayMaybe,
-    isCompleted: data.isCompleted,
-    completedAt: data.completedAt,
-    createdAt: data.createdAt,
-    updatedAt: data.updatedAt,
-    aiSuggestions,
-    recurrence,
-  }
+  // Deep clone the entire document to convert DeepReadonly to mutable
+  // This ensures all fields (including new ones) are automatically included
+  return JSON.parse(JSON.stringify(doc.toJSON())) as Task
 }
 
 function applyFilters(tasks: Task[], filters: TaskFilters): Task[] {

@@ -51,6 +51,8 @@ export function TaskDetail({
         energy: editedTask.energy,
         timeEstimate: editedTask.timeEstimate,
         deadline: editedTask.deadline,
+        scheduledStart: editedTask.scheduledStart,
+        scheduledEnd: editedTask.scheduledEnd,
         project: editedTask.project,
         isSomedayMaybe: editedTask.isSomedayMaybe,
         recurrence: editedTask.recurrence,
@@ -240,6 +242,58 @@ export function TaskDetail({
             ) : (
               <p className="text-gray-900 dark:text-white">
                 {task.deadline !== undefined ? formatDate(task.deadline) : 'No deadline'}
+              </p>
+            )}
+          </div>
+
+          {/* Scheduled Start */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Scheduled Start
+            </label>
+            {isEditing ? (
+              <Input
+                type="datetime-local"
+                value={editedTask.scheduledStart?.slice(0, 16) ?? ''}
+                onChange={(e): void => {
+                  setEditedTask({
+                    ...editedTask,
+                    scheduledStart:
+                      e.target.value !== '' ? new Date(e.target.value).toISOString() : undefined,
+                  })
+                }}
+                className="w-auto"
+              />
+            ) : (
+              <p className="text-gray-900 dark:text-white">
+                {task.scheduledStart !== undefined
+                  ? formatDate(task.scheduledStart)
+                  : 'Not scheduled'}
+              </p>
+            )}
+          </div>
+
+          {/* Scheduled End */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Scheduled End
+            </label>
+            {isEditing ? (
+              <Input
+                type="datetime-local"
+                value={editedTask.scheduledEnd?.slice(0, 16) ?? ''}
+                onChange={(e): void => {
+                  setEditedTask({
+                    ...editedTask,
+                    scheduledEnd:
+                      e.target.value !== '' ? new Date(e.target.value).toISOString() : undefined,
+                  })
+                }}
+                className="w-auto"
+              />
+            ) : (
+              <p className="text-gray-900 dark:text-white">
+                {task.scheduledEnd !== undefined ? formatDate(task.scheduledEnd) : 'Not set'}
               </p>
             )}
           </div>

@@ -2,7 +2,15 @@
  * OpenRouter AI Provider implementation
  */
 
-import type { AIProvider, AIProviderConfig, ChatMessage, ChatResponse, ContentPart } from '../types'
+import type {
+  AIProvider,
+  AIProviderConfig,
+  ChatMessage,
+  ChatOptions,
+  ChatResponse,
+  ContentPart,
+} from '../types'
+import { AI_MAX_TOKENS_DEFAULT } from '../types'
 
 const OPENROUTER_API_URL = 'https://openrouter.ai/api/v1/chat/completions'
 
@@ -41,7 +49,9 @@ export class OpenRouterProvider implements AIProvider {
     this.apiKey = config.apiKey
   }
 
-  async chat(messages: ChatMessage[], model: string): Promise<ChatResponse> {
+  async chat(messages: ChatMessage[], model: string, options?: ChatOptions): Promise<ChatResponse> {
+    const maxTokens = options?.maxTokens ?? AI_MAX_TOKENS_DEFAULT
+
     const response = await fetch(OPENROUTER_API_URL, {
       method: 'POST',
       headers: {
@@ -53,6 +63,7 @@ export class OpenRouterProvider implements AIProvider {
       body: JSON.stringify({
         model,
         messages,
+        max_tokens: maxTokens,
       }),
     })
 
@@ -82,8 +93,11 @@ export class OpenRouterProvider implements AIProvider {
     audioBase64: string,
     audioFormat: string,
     prompt: string,
-    model: string
+    model: string,
+    options?: ChatOptions
   ): Promise<ChatResponse> {
+    const maxTokens = options?.maxTokens ?? AI_MAX_TOKENS_DEFAULT
+
     const messages: ChatMessage[] = [
       {
         role: 'user',
@@ -114,6 +128,7 @@ export class OpenRouterProvider implements AIProvider {
       body: JSON.stringify({
         model,
         messages,
+        max_tokens: maxTokens,
       }),
     })
 

@@ -9,9 +9,11 @@ export type ProcessingState =
   | 'suggesting'
   | 'done'
 
-export interface ExtractedTask {
-  rawInput: string
-  nextAction: string
+// ExtractedTask derives fields from Task to stay in sync
+export interface ExtractedTask extends Pick<
+  Task,
+  'rawInput' | 'nextAction' | 'scheduledStart' | 'scheduledEnd' | 'recurrence'
+> {
   suggestions: AISuggestions
 }
 

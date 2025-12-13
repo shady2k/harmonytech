@@ -1,48 +1,30 @@
-export type TaskContext = 'computer' | 'phone' | 'errands' | 'home' | 'anywhere'
+/**
+ * Task Types
+ *
+ * All task-related types are derived from the master Zod schema.
+ *
+ * To add a new field to Task:
+ * 1. Add it to src/lib/schemas/task.master.ts
+ * 2. TypeScript types update automatically via z.infer
+ * 3. RxDB schema updates automatically via zodToRxDBSchema
+ * 4. AI prompt updates automatically if field has forExtraction: true
+ */
+export type {
+  Task,
+  TaskContext,
+  TaskEnergy,
+  RecurrencePattern,
+  ClassificationStatus,
+  Recurrence,
+  AISuggestions,
+} from '@/lib/schemas/task.master'
 
-export type TaskEnergy = 'high' | 'medium' | 'low'
-
-export type RecurrencePattern = 'daily' | 'weekly' | 'monthly' | 'custom'
-
-export type ClassificationStatus = 'pending' | 'classified' | 'user_override'
-
-export interface Recurrence {
-  pattern: RecurrencePattern
-  interval: number
-  daysOfWeek?: number[]
-  dayOfMonth?: number
-  endDate?: string
-}
-
-export interface AISuggestions {
-  suggestedContext?: TaskContext
-  suggestedEnergy?: TaskEnergy
-  suggestedTimeEstimate?: number
-  suggestedProject?: string
-  confidence?: number
-  alternatives?: {
-    context?: TaskContext[]
-    energy?: TaskEnergy[]
-    timeEstimate?: number[]
-  }
-}
-
-export interface Task {
-  id: string
-  rawInput: string
-  nextAction: string
-  context: TaskContext
-  energy: TaskEnergy
-  timeEstimate: number
-  deadline?: string
-  project?: string
-  isSomedayMaybe: boolean
-  isCompleted: boolean
-  completedAt?: string
-  createdAt: string
-  updatedAt: string
-  aiSuggestions?: AISuggestions
-  recurrence?: Recurrence
-  sourceThoughtId?: string
-  classificationStatus?: ClassificationStatus
-}
+export {
+  taskSchema,
+  taskContextSchema,
+  taskEnergySchema,
+  recurrencePatternSchema,
+  classificationStatusSchema,
+  recurrenceSchema,
+  aiSuggestionsSchema,
+} from '@/lib/schemas/task.master'

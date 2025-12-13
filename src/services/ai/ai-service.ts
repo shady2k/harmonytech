@@ -3,7 +3,8 @@
  * Provides a unified interface for AI operations across different providers
  */
 
-import type { AIProvider, ChatMessage, ChatResponse, ProviderType } from './types'
+import type { AIProvider, ChatMessage, ChatOptions, ChatResponse, ProviderType } from './types'
+import { AI_MAX_TOKENS_DEFAULT } from './types'
 import { logger } from '@/lib/logger'
 
 const log = logger.ai
@@ -43,16 +44,29 @@ export class AIService {
   /**
    * Send a chat completion request
    * Returns null if no provider is available
+   * @param messages - Chat messages
+   * @param model - Model to use
+   * @param options - Optional settings (maxTokens defaults to AI_MAX_TOKENS_DEFAULT)
    */
-  async chat(messages: ChatMessage[], model: string): Promise<ChatResponse | null> {
+  async chat(
+    messages: ChatMessage[],
+    model: string,
+    options?: ChatOptions
+  ): Promise<ChatResponse | null> {
     if (this.provider?.isAvailable() !== true) {
       log.debug('Chat request skipped - provider not available')
       return null
     }
 
+    // Apply global token limit protection
+    const effectiveOptions: ChatOptions = {
+      maxTokens: options?.maxTokens ?? AI_MAX_TOKENS_DEFAULT,
+    }
+
     log.debug('Chat request:', {
       provider: this.provider.type,
       model,
+      maxTokens: effectiveOptions.maxTokens,
       messageCount: messages.length,
       messages: messages.map((m) => ({
         role: m.role,
@@ -64,7 +78,7 @@ export class AIService {
     })
 
     try {
-      const response = await this.provider.chat(messages, model)
+      const response = await this.provider.chat(messages, model, effectiveOptions)
       log.debug('Chat response:', {
         id: response.id,
         contentPreview:
@@ -82,28 +96,46 @@ export class AIService {
   /**
    * Send a chat completion request with audio input
    * Returns null if no provider is available
+   * @param audioBase64 - Base64 encoded audio
+   * @param audioFormat - Audio format
+   * @param prompt - System prompt
+   * @param model - Model to use
+   * @param options - Optional settings (maxTokens defaults to AI_MAX_TOKENS_DEFAULT)
    */
   async chatWithAudio(
     audioBase64: string,
     audioFormat: string,
     prompt: string,
-    model: string
+    model: string,
+    options?: ChatOptions
   ): Promise<ChatResponse | null> {
     if (this.provider?.isAvailable() !== true) {
       log.debug('Audio chat request skipped - provider not available')
       return null
     }
 
+    // Apply global token limit protection
+    const effectiveOptions: ChatOptions = {
+      maxTokens: options?.maxTokens ?? AI_MAX_TOKENS_DEFAULT,
+    }
+
     log.debug('Audio chat request:', {
       provider: this.provider.type,
       model,
+      maxTokens: effectiveOptions.maxTokens,
       audioFormat,
       audioSizeKB: Math.round(audioBase64.length / 1024),
       promptPreview: prompt.slice(0, 200) + (prompt.length > 200 ? '...' : ''),
     })
 
     try {
-      const response = await this.provider.chatWithAudio(audioBase64, audioFormat, prompt, model)
+      const response = await this.provider.chatWithAudio(
+        audioBase64,
+        audioFormat,
+        prompt,
+        model,
+        effectiveOptions
+      )
       log.debug('Audio chat response:', {
         id: response.id,
         contentPreview:

@@ -82,8 +82,10 @@ export function MigrationProgress({
 
         {/* Error message */}
         {isError && state.error !== undefined && (
-          <div className="mb-4 rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
-            <p className="text-sm text-red-700 dark:text-red-300">{state.error.message}</p>
+          <div className="mb-4 max-h-48 overflow-y-auto rounded-lg border border-red-200 bg-red-50 p-3 dark:border-red-800 dark:bg-red-900/20">
+            <p className="break-words text-sm text-red-700 dark:text-red-300">
+              {state.error.message}
+            </p>
           </div>
         )}
 

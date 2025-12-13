@@ -1,6 +1,6 @@
 import { type ReactElement } from 'react'
 import { useCaptureStore } from '@/stores'
-import { Button } from '@/components/ui'
+import { Button, Input } from '@/components/ui'
 import { NavIcon } from '@/components/layout/NavIcon'
 import { PropertySuggestion } from './PropertySuggestion'
 import type { TaskContext, TaskEnergy } from '@/types/task'
@@ -38,6 +38,7 @@ export function SuggestionReview({ onSave, onCancel }: SuggestionReviewProps): R
     previousItem,
     removeExtractedTask,
     removeExtractedThought,
+    updateExtractedTask,
   } = useCaptureStore()
 
   if (extractedItems === null) {
@@ -160,6 +161,57 @@ export function SuggestionReview({ onSave, onCancel }: SuggestionReviewProps): R
               }}
             />
           )}
+        </div>
+      )}
+
+      {/* Scheduled dates for tasks */}
+      {isTask && currentTask !== null && (
+        <div className="space-y-4">
+          {/* Scheduled Start */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Scheduled Start
+            </label>
+            <Input
+              type="datetime-local"
+              value={currentTask.scheduledStart?.slice(0, 16) ?? ''}
+              onChange={(e): void => {
+                updateExtractedTask(currentItemIndex, {
+                  scheduledStart:
+                    e.target.value !== '' ? new Date(e.target.value).toISOString() : undefined,
+                })
+              }}
+              className="w-auto"
+            />
+            {currentTask.scheduledStart !== undefined && (
+              <p className="mt-1 text-xs text-indigo-600 dark:text-indigo-400">
+                AI extracted: {new Date(currentTask.scheduledStart).toLocaleString()}
+              </p>
+            )}
+          </div>
+
+          {/* Scheduled End */}
+          <div>
+            <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
+              Scheduled End
+            </label>
+            <Input
+              type="datetime-local"
+              value={currentTask.scheduledEnd?.slice(0, 16) ?? ''}
+              onChange={(e): void => {
+                updateExtractedTask(currentItemIndex, {
+                  scheduledEnd:
+                    e.target.value !== '' ? new Date(e.target.value).toISOString() : undefined,
+                })
+              }}
+              className="w-auto"
+            />
+            {currentTask.scheduledEnd !== undefined && (
+              <p className="mt-1 text-xs text-indigo-600 dark:text-indigo-400">
+                AI extracted: {new Date(currentTask.scheduledEnd).toLocaleString()}
+              </p>
+            )}
+          </div>
         </div>
       )}
 

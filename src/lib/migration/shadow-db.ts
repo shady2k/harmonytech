@@ -3,7 +3,7 @@ import { createRxDatabase } from 'rxdb'
 import { getRxStorageDexie } from 'rxdb/plugins/storage-dexie'
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv'
 
-import { taskSchema, type TaskCollection } from '@/lib/schemas/task.schema'
+import { taskSchemaRxDB, type TaskCollection } from '@/lib/schemas/task.schema'
 import { thoughtSchema, type ThoughtCollection } from '@/lib/schemas/thought.schema'
 import {
   voiceRecordingSchema,
@@ -63,7 +63,7 @@ export async function createShadowDatabase(dbName: string): Promise<ShadowDataba
   // Migration strategies are needed in case DB already exists from failed attempt
   await db.addCollections({
     tasks: {
-      schema: taskSchema,
+      schema: taskSchemaRxDB,
       migrationStrategies: taskMigrationStrategies,
     },
     thoughts: {

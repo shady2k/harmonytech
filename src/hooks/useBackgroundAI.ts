@@ -255,6 +255,9 @@ export function useBackgroundAI(): BackgroundAIState {
               energy,
               timeEstimate,
               project,
+              scheduledStart: extractedTask.scheduledStart,
+              scheduledEnd: extractedTask.scheduledEnd,
+              recurrence: extractedTask.recurrence,
               isSomedayMaybe: false,
               isCompleted: false,
               createdAt: now,
@@ -290,13 +293,16 @@ export function useBackgroundAI(): BackgroundAIState {
           finalStatus
         )
 
-        // Update thought with linked tasks
-        await thoughtDoc.patch({
-          linkedTaskIds: [...thought.linkedTaskIds, ...taskIds],
-          aiProcessed: true,
-          processingStatus: finalStatus,
-          updatedAt: now,
-        })
+        // Update thought with linked tasks - get fresh doc to avoid revision conflict
+        const freshThoughtDoc = await db.thoughts.findOne(thought.id).exec()
+        if (freshThoughtDoc) {
+          await freshThoughtDoc.patch({
+            linkedTaskIds: [...freshThoughtDoc.linkedTaskIds, ...taskIds],
+            aiProcessed: true,
+            processingStatus: finalStatus,
+            updatedAt: now,
+          })
+        }
 
         // Clear retry count on success
         retryCountMap.delete(thought.id)

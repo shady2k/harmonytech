@@ -33,8 +33,9 @@ export function clearDbVersionInfo(): void {
 export function getCurrentDbName(): string {
   const info = getDbVersionInfo()
   if (info === null) {
-    // No version info means legacy DB or fresh install
-    return getLegacyDbName()
+    // No version info - use current version directly for fresh installs
+    // This prevents creating legacy database unnecessarily
+    return getTargetDbName(CURRENT_SCHEMA_VERSION)
   }
   return info.dbName
 }

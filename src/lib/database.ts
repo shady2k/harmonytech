@@ -8,7 +8,7 @@ import { RxDBLeaderElectionPlugin } from 'rxdb/plugins/leader-election'
 import { RxDBMigrationSchemaPlugin } from 'rxdb/plugins/migration-schema'
 import { wrappedValidateAjvStorage } from 'rxdb/plugins/validate-ajv'
 
-import { taskSchema, type TaskCollection, type TaskDocument } from '@/lib/schemas/task.schema'
+import { taskSchemaRxDB, type TaskCollection, type TaskDocument } from '@/lib/schemas/task.schema'
 import {
   thoughtSchema,
   type ThoughtCollection,
@@ -100,7 +100,7 @@ async function createDatabaseWithName(dbName: string): Promise<HarmonyTechDataba
   // Add collections with schemas and migration strategies
   await db.addCollections({
     tasks: {
-      schema: taskSchema,
+      schema: taskSchemaRxDB,
       migrationStrategies: taskMigrationStrategies,
     },
     thoughts: {

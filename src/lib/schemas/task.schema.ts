@@ -1,3 +1,14 @@
+/**
+ * RxDB Task Schema
+ *
+ * This schema MUST match the master Zod schema in task.master.ts.
+ * When adding new fields to Task:
+ * 1. Add to task.master.ts first (single source of truth for types)
+ * 2. Update this file to match
+ * 3. Increment version and add migration strategy if needed
+ *
+ * Note: RxDB Dexie storage doesn't support indexes on optional fields.
+ */
 import type { RxCollection, RxDocument, RxJsonSchema } from 'rxdb'
 import type { Task } from '@/types/task'
 
@@ -5,7 +16,14 @@ export type TaskDocType = Task
 export type TaskDocument = RxDocument<TaskDocType>
 export type TaskCollection = RxCollection<TaskDocType>
 
-export const taskSchema: RxJsonSchema<TaskDocType> = {
+/**
+ * RxDB schema for Task collection
+ *
+ * Version history:
+ * - v0: Initial schema
+ * - v1: Added scheduledStart, scheduledEnd, recurrence fields
+ */
+export const taskSchemaRxDB: RxJsonSchema<TaskDocType> = {
   version: 1,
   primaryKey: 'id',
   type: 'object',
@@ -34,6 +52,14 @@ export const taskSchema: RxJsonSchema<TaskDocType> = {
       type: 'number',
     },
     deadline: {
+      type: 'string',
+      maxLength: 30,
+    },
+    scheduledStart: {
+      type: 'string',
+      maxLength: 30,
+    },
+    scheduledEnd: {
       type: 'string',
       maxLength: 30,
     },
@@ -149,7 +175,6 @@ export const taskSchema: RxJsonSchema<TaskDocType> = {
     'isCompleted',
     'createdAt',
     'updatedAt',
-    'sourceThoughtId',
   ],
-  indexes: ['createdAt', 'isCompleted', 'context', 'energy', 'sourceThoughtId'],
+  indexes: ['createdAt', 'isCompleted', 'context', 'energy'],
 }

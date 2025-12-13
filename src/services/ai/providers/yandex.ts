@@ -3,7 +3,15 @@
  * Supports YandexGPT for chat and SpeechKit for STT
  */
 
-import type { AIProvider, AIProviderConfig, ChatMessage, ChatResponse, ContentPart } from '../types'
+import type {
+  AIProvider,
+  AIProviderConfig,
+  ChatMessage,
+  ChatOptions,
+  ChatResponse,
+  ContentPart,
+} from '../types'
+import { AI_MAX_TOKENS_DEFAULT } from '../types'
 import { logger } from '@/lib/logger'
 
 const log = logger.yandex
@@ -88,10 +96,12 @@ export class YandexProvider implements AIProvider {
   /**
    * Send a chat completion request to YandexGPT
    */
-  async chat(messages: ChatMessage[], model: string): Promise<ChatResponse> {
+  async chat(messages: ChatMessage[], model: string, options?: ChatOptions): Promise<ChatResponse> {
     if (this.apiKey === '' || this.folderId === '') {
       throw new Error('Yandex API key and folder ID are required')
     }
+
+    const maxTokens = options?.maxTokens ?? AI_MAX_TOKENS_DEFAULT
 
     // Default to yandexgpt-lite if no model specified
     const modelName = model !== '' ? model : 'yandexgpt-lite'
@@ -109,7 +119,7 @@ export class YandexProvider implements AIProvider {
         completionOptions: {
           stream: false,
           temperature: 0.3,
-          maxTokens: '2000',
+          maxTokens: String(maxTokens),
         },
         messages: messages.map((m) => ({
           role: m.role,
@@ -156,7 +166,8 @@ export class YandexProvider implements AIProvider {
     audioBase64: string,
     audioFormat: string,
     prompt: string,
-    model: string
+    model: string,
+    options?: ChatOptions
   ): Promise<ChatResponse> {
     // Step 1: Transcribe audio using SpeechKit
     const transcript = await this.transcribeAudio(audioBase64, audioFormat)
@@ -172,7 +183,8 @@ export class YandexProvider implements AIProvider {
           { role: 'system', content: prompt },
           { role: 'user', content: transcript },
         ],
-        model
+        model,
+        options
       )
     }
 
