@@ -9,3 +9,4 @@ export {
   type PropertySuggestion,
   type CurrentSuggestions,
 } from './capture.store'
+export { useAICacheStore, initAICacheSubscription } from './ai-cache.store'

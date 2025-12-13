@@ -1,15 +1,13 @@
 /**
  * Auto-recommendations hook
  * Automatically fetches recommendations on mount with sensible defaults
+ * Uses the unified useAI hook for caching
  */
 
-import { useState, useCallback, useEffect, useRef } from 'react'
-import { useSettingsStore } from '@/stores'
+import { useState, useCallback, useEffect } from 'react'
 import { useTasks } from './useTasks'
 import { useThoughts } from './useThoughts'
-import { useAIStatus } from './useAIStatus'
-import { aiService } from '@/services/ai'
-import { WHAT_TO_DO_NEXT_PROMPT } from '@/lib/ai-prompts'
+import { useAI } from './useAI'
 import type { Task, TaskContext, TaskEnergy } from '@/types/task'
 import type { Thought } from '@/types/thought'
 
@@ -40,50 +38,6 @@ interface UseAutoRecommendationsReturn {
   }) => Promise<void>
 }
 
-interface AIRecommendation {
-  taskId?: unknown
-  reasoning?: unknown
-  matchScore?: unknown
-}
-
-interface AIRecommendationResponse {
-  recommendations?: AIRecommendation[]
-  alternativeActions?: unknown[]
-}
-
-const JSON_REGEX = /\{[\s\S]*\}/
-const CACHE_DURATION_MS = 5 * 60 * 1000 // 5 minutes
-
-function parseRecommendationResponse(content: string): AIRecommendationResponse {
-  const jsonMatch = JSON_REGEX.exec(content)
-  if (jsonMatch === null) {
-    throw new Error('No valid JSON found in response')
-  }
-
-  const parsed = JSON.parse(jsonMatch[0]) as unknown
-
-  if (typeof parsed !== 'object' || parsed === null) {
-    throw new Error('Invalid response structure')
-  }
-
-  return parsed as AIRecommendationResponse
-}
-
-function formatTasksForPrompt(tasks: Task[]): string {
-  return tasks
-    .map(
-      (task) =>
-        `- ID: ${task.id}
-  Action: ${task.nextAction}
-  Context: ${task.context}
-  Energy: ${task.energy}
-  Time: ${String(task.timeEstimate)} min
-  Deadline: ${task.deadline ?? 'None'}
-  Project: ${task.project ?? 'None'}`
-    )
-    .join('\n\n')
-}
-
 // Get current time of day to suggest appropriate energy level
 function getDefaultEnergy(): TaskEnergy {
   const hour = new Date().getHours()
@@ -99,16 +53,9 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
   const [isLoading, setIsLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const { textModel } = useSettingsStore()
   const { tasks } = useTasks()
   const { thoughts } = useThoughts()
-  const { isAIAvailable } = useAIStatus()
-
-  const cacheRef = useRef<{
-    timestamp: number
-    recommendations: Recommendation[]
-    alternativeActions: string[]
-  } | null>(null)
+  const { getRecommendations, isAIAvailable } = useAI()
 
   // Get unprocessed and recent thoughts for fallback UI
   const unprocessedThoughts = thoughts.filter((t) => !t.aiProcessed).slice(0, 5)
@@ -127,7 +74,7 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
       const timeAvailable = context?.timeAvailable ?? 30 // Default 30 minutes
       const location = context?.location ?? 'anywhere' // Default anywhere
 
-      if (!isAIAvailable || textModel === null || textModel === '') {
+      if (!isAIAvailable) {
         setError(null) // Not an error, just not available
         return
       }
@@ -145,61 +92,27 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
       setError(null)
 
       try {
-        // Build the prompt with context
-        const prompt = WHAT_TO_DO_NEXT_PROMPT.replace('{timeAvailable}', String(timeAvailable))
-          .replace('{energyLevel}', energy)
-          .replace('{context}', location)
-          .replace('{tasks}', formatTasksForPrompt(incompleteTasks))
-
-        const response = await aiService.chat(
-          [
-            {
-              role: 'user',
-              content: prompt,
-            },
-          ],
-          textModel
-        )
-
-        if (response === null) {
-          throw new Error('AI service not available')
-        }
-        const content = response.content
-        if (content === '') {
-          throw new Error('Empty response from AI')
-        }
-
-        const parsed = parseRecommendationResponse(content)
+        const result = await getRecommendations(incompleteTasks, {
+          energy,
+          timeAvailable,
+          location,
+        })
 
         // Map recommendations to include full task objects
-        const mappedRecommendations: Recommendation[] = (parsed.recommendations ?? [])
-          .slice(0, 3)
+        const mappedRecommendations: Recommendation[] = result.recommendations
           .map((rec) => {
-            const taskId = typeof rec.taskId === 'string' ? rec.taskId : ''
-            const task = incompleteTasks.find((t) => t.id === taskId) ?? null
-
+            const task = incompleteTasks.find((t) => t.id === rec.taskId) ?? null
             return {
-              taskId,
+              taskId: rec.taskId,
               task,
-              reasoning: typeof rec.reasoning === 'string' ? rec.reasoning : '',
-              matchScore: typeof rec.matchScore === 'number' ? rec.matchScore : 0,
+              reasoning: rec.reasoning,
+              matchScore: rec.matchScore,
             }
           })
           .filter((rec) => rec.task !== null)
 
-        const mappedAlternatives: string[] = Array.isArray(parsed.alternativeActions)
-          ? parsed.alternativeActions.filter((a): a is string => typeof a === 'string').slice(0, 3)
-          : []
-
         setRecommendations(mappedRecommendations)
-        setAlternativeActions(mappedAlternatives)
-
-        // Cache the results
-        cacheRef.current = {
-          timestamp: Date.now(),
-          recommendations: mappedRecommendations,
-          alternativeActions: mappedAlternatives,
-        }
+        setAlternativeActions(result.alternativeActions)
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to get recommendations'
         setError(message)
@@ -207,18 +120,11 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
         setIsLoading(false)
       }
     },
-    [isAIAvailable, textModel, tasks]
+    [isAIAvailable, tasks, getRecommendations]
   )
 
   // Auto-fetch on mount if AI is available
   useEffect(() => {
-    // Check cache first
-    if (cacheRef.current && Date.now() - cacheRef.current.timestamp < CACHE_DURATION_MS) {
-      setRecommendations(cacheRef.current.recommendations)
-      setAlternativeActions(cacheRef.current.alternativeActions)
-      return
-    }
-
     if (isAIAvailable && tasks.length > 0) {
       void refresh()
     }

@@ -3,14 +3,13 @@
  * Watches for unprocessed thoughts and extracts tasks automatically
  * Handles graceful degradation when AI is unavailable
  * Supports confidence thresholds, retry logic, and offline detection
+ * Uses the unified useAI hook for all AI operations
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { useDatabaseContext } from '@/contexts/DatabaseContext'
 import { useSettingsStore } from '@/stores/settings.store'
-import { aiService } from '@/services/ai'
-import { extractFromText } from '@/services/task-extractor'
-import { suggestProperties } from '@/services/property-suggester'
+import { useAI } from './useAI'
 import { logger } from '@/lib/logger'
 import { RETRY_DELAYS, MAX_RETRIES } from '@/lib/constants/ai'
 import type { Thought, ProcessingStatus } from '@/types/thought'
@@ -34,7 +33,8 @@ const retryCountMap = new Map<string, number>()
 
 export function useBackgroundAI(): BackgroundAIState {
   const { db } = useDatabaseContext()
-  const { textModel, aiEnabled, aiConfidenceThreshold } = useSettingsStore()
+  const { aiEnabled, aiConfidenceThreshold } = useSettingsStore()
+  const { extractTasks, suggestTaskProperties, isAIAvailable } = useAI()
   const isProcessingRef = useRef(false)
   const [state, setState] = useState<BackgroundAIState>({
     pendingCount: 0,
@@ -147,7 +147,7 @@ export function useBackgroundAI(): BackgroundAIState {
         }
 
         // Only check AI availability when there's work to do
-        if (!aiService.isAvailable() || textModel === null || textModel === '') {
+        if (!isAIAvailable) {
           log.debug('AI not available, skipping', thoughtsToProcess.length, 'thoughts')
           return
         }
@@ -155,7 +155,7 @@ export function useBackgroundAI(): BackgroundAIState {
         // Process each thought with throttling to avoid API spam
         for (let i = 0; i < thoughtsToProcess.length; i++) {
           const thoughtDoc = thoughtsToProcess[i]
-          await processThought(thoughtDoc, textModel)
+          await processThought(thoughtDoc)
           setState((prev) => ({
             ...prev,
             pendingCount: Math.max(0, prev.pendingCount - 1),
@@ -175,7 +175,7 @@ export function useBackgroundAI(): BackgroundAIState {
       }
     }
 
-    const processThought = async (thoughtDoc: ThoughtDocument, model: string): Promise<void> => {
+    const processThought = async (thoughtDoc: ThoughtDocument): Promise<void> => {
       const thought = thoughtDoc.toJSON() as Thought
       const now = new Date().toISOString()
 
@@ -183,9 +183,9 @@ export function useBackgroundAI(): BackgroundAIState {
       await updateProcessingStatus(thoughtDoc, 'processing')
 
       try {
-        // Extract tasks from thought content
+        // Extract tasks from thought content using unified AI layer
         log.debug('Processing thought:', thought.content)
-        const result = await extractFromText(thought.content, model)
+        const result = await extractTasks(thought.content)
         log.debug('Extraction result:', result)
 
         if (result.tasks.length === 0) {
@@ -216,7 +216,8 @@ export function useBackgroundAI(): BackgroundAIState {
           let taskConfidence = 1.0
 
           try {
-            const suggestions = await suggestProperties(extractedTask.nextAction, [], model)
+            // Get AI suggestions using unified AI layer
+            const suggestions = await suggestTaskProperties(extractedTask.nextAction, [])
             log.debug('Property suggestions:', suggestions)
             context = suggestions.context.value
             energy = suggestions.energy.value
@@ -341,9 +342,11 @@ export function useBackgroundAI(): BackgroundAIState {
     }
   }, [
     db,
-    textModel,
     aiEnabled,
     aiConfidenceThreshold,
+    isAIAvailable,
+    extractTasks,
+    suggestTaskProperties,
     delay,
     updateProcessingStatus,
     calculateOverallConfidence,

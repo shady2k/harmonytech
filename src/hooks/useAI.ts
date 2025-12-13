@@ -1,11 +1,24 @@
 import { useState, useCallback } from 'react'
 import { useSettingsStore } from '@/stores'
+import { useAICacheStore } from '@/stores/ai-cache.store'
 import { extractFromText, type ExtractionResult } from '@/services/task-extractor'
 import { processVoiceRecording, type VoiceProcessingResult } from '@/services/voice-processor'
 import { suggestProperties, type PropertySuggestions } from '@/services/property-suggester'
+import {
+  getRecommendations as getRecommendationsService,
+  type RecommendationsResult,
+  type RecommendationsContext,
+} from '@/services/recommendations'
 import { aiService } from '@/services/ai'
 import { useAIStatus } from '@/hooks/useAIStatus'
+import { extractionCacheKey, propertiesCacheKey, recommendationsCacheKey } from '@/lib/cache-utils'
+import {
+  CACHE_TTL_EXTRACTION,
+  CACHE_TTL_PROPERTIES,
+  CACHE_TTL_RECOMMENDATIONS,
+} from '@/lib/constants/ai'
 import type { CurrentSuggestions } from '@/stores/capture.store'
+import type { Task } from '@/types/task'
 
 interface UseAIReturn {
   // Task extraction
@@ -19,6 +32,12 @@ interface UseAIReturn {
     taskText: string,
     existingProjects?: string[]
   ) => Promise<PropertySuggestions>
+
+  // Recommendations
+  getRecommendations: (
+    tasks: Task[],
+    context: RecommendationsContext
+  ) => Promise<RecommendationsResult>
 
   // State
   isProcessing: boolean
@@ -45,6 +64,9 @@ export function useAI(): UseAIReturn {
     validateApiKey: storeValidateApiKey,
   } = useSettingsStore()
 
+  const cacheGet = useAICacheStore((state) => state.get)
+  const cacheSet = useAICacheStore((state) => state.set)
+
   // Get AI availability from context (provider is set there)
   const { isAIAvailable } = useAIStatus()
 
@@ -66,11 +88,20 @@ export function useAI(): UseAIReturn {
         throw new Error('Text model not configured. Please select a text model in Settings.')
       }
 
+      // Check cache first
+      const cacheKey = extractionCacheKey(text)
+      const cached = cacheGet(cacheKey) as ExtractionResult | null
+      if (cached !== null) {
+        return cached
+      }
+
       setIsProcessing(true)
       setError(null)
 
       try {
         const result = await extractFromText(text, textModel)
+        // Store in cache
+        cacheSet(cacheKey, result, CACHE_TTL_EXTRACTION)
         return result
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to extract tasks'
@@ -80,7 +111,7 @@ export function useAI(): UseAIReturn {
         setIsProcessing(false)
       }
     },
-    [textModel]
+    [textModel, cacheGet, cacheSet]
   )
 
   const processVoice = useCallback(
@@ -116,11 +147,20 @@ export function useAI(): UseAIReturn {
         throw new Error('AI service not configured')
       }
 
+      // Check cache first
+      const cacheKey = propertiesCacheKey(taskText, existingProjects)
+      const cached = cacheGet(cacheKey) as PropertySuggestions | null
+      if (cached !== null) {
+        return cached
+      }
+
       setIsProcessing(true)
       setError(null)
 
       try {
         const result = await suggestProperties(taskText, existingProjects, textModel)
+        // Store in cache
+        cacheSet(cacheKey, result, CACHE_TTL_PROPERTIES)
         return result
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to suggest properties'
@@ -130,13 +170,52 @@ export function useAI(): UseAIReturn {
         setIsProcessing(false)
       }
     },
-    [textModel]
+    [textModel, cacheGet, cacheSet]
+  )
+
+  const getRecommendations = useCallback(
+    async (tasks: Task[], context: RecommendationsContext): Promise<RecommendationsResult> => {
+      if (!aiService.isAvailable() || textModel === null || textModel === '') {
+        throw new Error('AI service not configured')
+      }
+
+      // Check cache first
+      const taskIds = tasks.map((t) => t.id)
+      const cacheKey = recommendationsCacheKey(
+        context.timeAvailable,
+        context.energy,
+        context.location,
+        taskIds
+      )
+      const cached = cacheGet(cacheKey) as RecommendationsResult | null
+      if (cached !== null) {
+        return cached
+      }
+
+      setIsProcessing(true)
+      setError(null)
+
+      try {
+        const result = await getRecommendationsService(tasks, context, textModel)
+        // Store in cache
+        cacheSet(cacheKey, result, CACHE_TTL_RECOMMENDATIONS)
+        return result
+      } catch (err) {
+        const message = err instanceof Error ? err.message : 'Failed to get recommendations'
+        setError(message)
+        throw err
+      } finally {
+        setIsProcessing(false)
+      }
+    },
+    [textModel, cacheGet, cacheSet]
   )
 
   return {
     extractTasks,
     processVoice,
     suggestTaskProperties,
+    getRecommendations,
     isProcessing,
     error,
     clearError,
