@@ -29,3 +29,6 @@ npm-debug.log*
 
 # PWA dev
 dev-dist
+
+# Local scripts (may contain private data)
+scripts/
