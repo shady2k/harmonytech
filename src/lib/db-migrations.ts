@@ -68,9 +68,29 @@ const v2VoiceRecordingIndexes: Migration = {
 }
 
 /**
+ * Version 3: Require mimeType for voice recordings
+ *
+ * - mimeType is now required for audio playback to work correctly
+ * - Delete recordings without mimeType (they can't be played anyway)
+ */
+const v3RequireMimeType: Migration = {
+  version: 3,
+  stores: {},
+  upgrade: async (tx) => {
+    const table = tx.table<VoiceRecording>('voiceRecordings')
+    const recordingsWithoutMimeType = await table.filter((r) => !r.mimeType).primaryKeys()
+    await table.bulkDelete(recordingsWithoutMimeType)
+  },
+}
+
+/**
  * All migrations in order
  */
-export const migrations: readonly Migration[] = [v1Initial, v2VoiceRecordingIndexes]
+export const migrations: readonly Migration[] = [
+  v1Initial,
+  v2VoiceRecordingIndexes,
+  v3RequireMimeType,
+]
 
 /**
  * Register all migrations with a Dexie database instance

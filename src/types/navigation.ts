@@ -1,4 +1,4 @@
-export type ViewType = 'home' | 'inbox' | 'tasks' | 'thoughts' | 'settings'
+export type ViewType = 'home' | 'inbox' | 'tasks' | 'timers' | 'thoughts' | 'settings'
 
 export interface NavItem {
   id: ViewType

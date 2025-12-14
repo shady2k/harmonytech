@@ -1,6 +1,7 @@
 import { useEffect, useCallback, useRef, type ReactElement } from 'react'
 import { useCaptureStore } from '@/stores'
 import { useVoiceRecording } from '@/hooks/useVoiceRecording'
+import { useAIStatus } from '@/hooks/useAIStatus'
 import { NavIcon } from '@/components/layout/NavIcon'
 import { Button } from '@/components/ui'
 import { CAPTURE_SHORTCUTS } from '@/config/shortcuts'
@@ -11,6 +12,7 @@ interface VoiceCaptureProps {
 }
 
 export function VoiceCapture({ onRecordingComplete, autoStart }: VoiceCaptureProps): ReactElement {
+  const { isAIAvailable } = useAIStatus()
   const {
     isRecording: storeIsRecording,
     startRecording: storeStartRecording,
@@ -101,6 +103,25 @@ export function VoiceCapture({ onRecordingComplete, autoStart }: VoiceCapturePro
       window.removeEventListener('keydown', handleKeyDown)
     }
   }, [handleToggleRecording, isRecording, stopRecording])
+
+  // Show disabled state when AI is not configured
+  if (!isAIAvailable) {
+    return (
+      <div className="flex flex-col items-center space-y-4">
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100 text-gray-400 dark:bg-gray-800">
+          <NavIcon name="mic" className="h-8 w-8" />
+        </div>
+        <div className="text-center">
+          <p className="text-sm font-medium text-gray-700 dark:text-gray-300">
+            Voice capture unavailable
+          </p>
+          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+            Configure an AI provider in Settings to enable voice transcription
+          </p>
+        </div>
+      </div>
+    )
+  }
 
   return (
     <div className="flex flex-col items-center space-y-4">

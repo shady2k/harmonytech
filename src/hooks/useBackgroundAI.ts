@@ -131,7 +131,7 @@ export function useBackgroundAI(): BackgroundAIState {
         for (let i = 0; i < binaryString.length; i++) {
           bytes[i] = binaryString.charCodeAt(i)
         }
-        const audioBlob = new Blob([bytes], { type: 'audio/wav' })
+        const audioBlob = new Blob([bytes], { type: recording.mimeType })
 
         // Transcribe via AI queue
         log.debug('Transcribing voice recording:', recording.id)

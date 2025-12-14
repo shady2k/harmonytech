@@ -17,6 +17,7 @@ export const NAV_SHORTCUTS: Record<ViewType, ShortcutDef> = {
   home: { key: 'KeyH', label: 'H', description: 'Go to Home' },
   inbox: { key: 'KeyI', label: 'I', description: 'Go to Inbox' },
   tasks: { key: 'KeyT', label: 'T', description: 'Go to Tasks' },
+  timers: { key: 'KeyR', label: 'R', description: 'Go to Timers' },
   thoughts: { key: 'KeyO', label: 'O', description: 'Go to Thoughts' }, // 'O' for thOughts
   settings: { key: 'KeyS', label: 'S', description: 'Go to Settings' },
 }
@@ -79,6 +80,7 @@ export function getKeyboardShortcuts(): ShortcutGroup[] {
         { key: NAV_SHORTCUTS.home.label, description: NAV_SHORTCUTS.home.description },
         { key: NAV_SHORTCUTS.inbox.label, description: NAV_SHORTCUTS.inbox.description },
         { key: NAV_SHORTCUTS.tasks.label, description: NAV_SHORTCUTS.tasks.description },
+        { key: NAV_SHORTCUTS.timers.label, description: NAV_SHORTCUTS.timers.description },
         { key: NAV_SHORTCUTS.thoughts.label, description: NAV_SHORTCUTS.thoughts.description },
         { key: NAV_SHORTCUTS.settings.label, description: NAV_SHORTCUTS.settings.description },
         { key: LIST_SHORTCUTS.next.label, description: LIST_SHORTCUTS.next.description },

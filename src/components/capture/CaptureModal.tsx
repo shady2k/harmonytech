@@ -112,7 +112,7 @@ export function CaptureModal({ isOpen, onClose, onSave }: CaptureModalProps): Re
   }
 
   return (
-    <div className="fixed inset-0 z-50 flex items-end justify-center md:items-center">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       {/* Backdrop */}
       <div
         className="absolute inset-0 bg-black/50 backdrop-blur-sm"
@@ -122,7 +122,7 @@ export function CaptureModal({ isOpen, onClose, onSave }: CaptureModalProps): Re
 
       {/* Modal */}
       <div
-        className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-t-2xl bg-white p-6 shadow-xl dark:bg-gray-900 md:rounded-2xl"
+        className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-2xl bg-white p-6 shadow-xl dark:bg-gray-900"
         role="dialog"
         aria-modal="true"
         aria-labelledby="capture-modal-title"

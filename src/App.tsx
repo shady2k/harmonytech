@@ -89,6 +89,7 @@ function AppContent(): ReactElement {
       await db.voiceRecordings.add({
         id: recordingId,
         audioData,
+        mimeType: audioBlob.type,
         status: 'pending',
         createdByDeviceId: getDeviceId(),
         createdAt: now,

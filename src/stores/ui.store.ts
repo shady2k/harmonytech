@@ -1,7 +1,7 @@
 import { create } from 'zustand'
 import type { TaskContext, TaskEnergy } from '@/types/task'
 
-export type ActiveView = 'home' | 'inbox' | 'tasks' | 'thoughts' | 'settings'
+export type ActiveView = 'home' | 'inbox' | 'tasks' | 'timers' | 'thoughts' | 'settings'
 
 export interface TaskFilters {
   context: TaskContext | null

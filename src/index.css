@@ -13,6 +13,18 @@ body {
   @apply bg-gray-50 dark:bg-gray-900;
 }
 
+/* Hide scrollbar on mobile while keeping scroll functionality */
+@media (max-width: 767px) {
+  * {
+    scrollbar-width: none; /* Firefox */
+    -ms-overflow-style: none; /* IE and Edge */
+  }
+
+  *::-webkit-scrollbar {
+    display: none; /* Chrome, Safari, Opera */
+  }
+}
+
 /* Task animations */
 @keyframes task-complete {
   0% {

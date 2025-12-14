@@ -9,6 +9,7 @@ export type VoiceRecordingStatus = z.infer<typeof voiceRecordingStatusSchema>
 export const voiceRecordingSchema = z.object({
   id: z.string(),
   audioData: z.string(), // Base64 encoded audio blob
+  mimeType: z.string(), // MIME type of the audio (e.g., 'audio/mp4', 'audio/webm')
   status: voiceRecordingStatusSchema,
   transcript: z.string().optional(),
   errorMessage: z.string().optional(),
