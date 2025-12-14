@@ -1,1 +1,6 @@
 export { SyncStatus } from './SyncStatus'
+export { DeviceNameSetup } from './DeviceNameSetup'
+export { InviteDisplay } from './InviteDisplay'
+export { JoinSpace } from './JoinSpace'
+export { ConnectedDevices } from './ConnectedDevices'
+export { VersionMismatchAlert } from './VersionMismatchAlert'

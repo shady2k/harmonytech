@@ -1,13 +1,11 @@
 import type * as Y from 'yjs'
-import { db, type HarmonyDatabase, type Task, type Thought, type Project } from './dexie-database'
-import { getYDoc, getTasksMap, getThoughtsMap, getProjectsMap, initSyncProvider } from './sync'
+import { db, type HarmonyDatabase, type Task, type Thought, type Project } from '../dexie-database'
+import { getYDoc, getTasksMap, getThoughtsMap, getProjectsMap, initSyncProvider } from './core'
 
 type SyncableDocument = Task | Thought | Project
 
 interface SyncBridgeConfig {
   enabled: boolean
-  roomName?: string
-  password?: string
 }
 
 type CleanupFunction = () => void
@@ -163,11 +161,8 @@ export function initSyncBridge(_db: HarmonyDatabase, config: SyncBridgeConfig): 
   if (!config.enabled) return
   if (isSyncInitialized) return
 
-  // Initialize the WebRTC provider
-  initSyncProvider({
-    roomName: config.roomName,
-    password: config.password,
-  })
+  // Initialize the WebRTC provider (reads space credentials from localStorage)
+  initSyncProvider()
 
   // Setup sync for each table
   const tasksCleanup = setupTableSync('tasks', getTasksMap())

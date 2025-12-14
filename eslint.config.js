@@ -53,5 +53,12 @@ export default tseslint.config(
       'no-debugger': 'error',
       'prettier/prettier': 'error',
     },
+  },
+  // Allow console in logger utility (must come after main config to override)
+  {
+    files: ['src/lib/logger.ts'],
+    rules: {
+      'no-console': 'off',
+    },
   }
 )

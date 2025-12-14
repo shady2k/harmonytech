@@ -1,88 +1,233 @@
 import { type ReactElement, useState, useCallback } from 'react'
 import { useSyncStatus } from '@/hooks/useSyncStatus'
+import { useInviteLink } from '@/hooks/useInviteLink'
 import { Button } from '@/components/ui/Button'
-import { Input } from '@/components/ui/Input'
 import { Card } from '@/components/ui/Card'
+import {
+  DeviceNameSetup,
+  InviteDisplay,
+  JoinSpace,
+  ConnectedDevices,
+  VersionMismatchAlert,
+} from '@/components/sync'
+import { getPassword } from '@/lib/sync'
 
 interface SyncSettingsProps {
   className?: string
 }
+
+type SyncView = 'main' | 'join'
 
 export function SyncSettings({ className = '' }: SyncSettingsProps): ReactElement {
   const {
     isEnabled,
     isOnline,
     isSyncing,
-    connectedPeers,
+    connectedDevices,
+    deviceName,
+    spaceId,
+    versionMismatch,
     syncError,
-    roomName,
-    deviceId,
     enableSync,
     disableSync,
-    setRoom,
+    createSpace,
+    joinSpace,
+    setDeviceName,
+    dismissVersionMismatch,
   } = useSyncStatus()
 
-  const [showJoinRoom, setShowJoinRoom] = useState(false)
-  const [joinRoomCode, setJoinRoomCode] = useState('')
-  const [copied, setCopied] = useState(false)
+  const { pendingInvite, clearPendingInvite } = useInviteLink()
+  const [view, setView] = useState<SyncView>('main')
+  const [password, setPassword] = useState<string | null>(null)
+  // Track if user wants sync enabled (for showing setup steps)
+  const [wantsSyncEnabled, setWantsSyncEnabled] = useState(false)
 
+  // Handle device name setup completion
+  const handleDeviceNameComplete = useCallback(
+    (name: string): void => {
+      setDeviceName(name)
+    },
+    [setDeviceName]
+  )
+
+  // Handle creating new space
+  const handleCreateSpace = useCallback((): void => {
+    const { password: newPassword } = createSpace()
+    setPassword(newPassword)
+    enableSync()
+    setWantsSyncEnabled(false)
+  }, [createSpace, enableSync])
+
+  // Handle joining existing space
+  const handleJoinSpace = useCallback(
+    (newSpaceId: string, newPassword: string): void => {
+      joinSpace(newSpaceId, newPassword)
+      setPassword(newPassword)
+      setView('main')
+      clearPendingInvite()
+      enableSync()
+      setWantsSyncEnabled(false)
+    },
+    [joinSpace, enableSync, clearPendingInvite]
+  )
+
+  // Handle pending invite from URL
+  const handleAcceptInvite = useCallback((): void => {
+    if (pendingInvite !== null) {
+      handleJoinSpace(pendingInvite.spaceId, pendingInvite.password)
+    }
+  }, [pendingInvite, handleJoinSpace])
+
+  // Handle toggle sync
   const handleToggleSync = useCallback((): void => {
     if (isEnabled) {
       disableSync()
+      setWantsSyncEnabled(false)
     } else {
-      enableSync()
+      // If already configured, just enable
+      if (deviceName !== null && spaceId !== null) {
+        enableSync()
+      } else {
+        // Show setup flow
+        setWantsSyncEnabled(true)
+      }
     }
-  }, [isEnabled, enableSync, disableSync])
+  }, [isEnabled, enableSync, disableSync, deviceName, spaceId])
 
-  const handleCopyRoomCode = useCallback(async (): Promise<void> => {
-    try {
-      await navigator.clipboard.writeText(roomName)
-      setCopied(true)
-      setTimeout(() => {
-        setCopied(false)
-      }, 2000)
-    } catch {
-      // Clipboard API not available - silently fail
-    }
-  }, [roomName])
+  // Get current password for invite display
+  const currentPassword = password ?? getPassword()
 
-  const handleJoinRoom = useCallback((): void => {
-    if (joinRoomCode.trim() !== '') {
-      setRoom(joinRoomCode.trim())
-      setShowJoinRoom(false)
-      setJoinRoomCode('')
-    }
-  }, [joinRoomCode, setRoom])
+  // Determine if we should show setup (user wants sync but not configured)
+  const showSetup = wantsSyncEnabled && !isEnabled
+
+  // ========== RENDER ==========
 
   return (
     <div className={`space-y-6 ${className}`}>
-      {/* Sync Toggle */}
+      {/* Version mismatch alert */}
+      {versionMismatch !== null && (
+        <VersionMismatchAlert mismatch={versionMismatch} onDismiss={dismissVersionMismatch} />
+      )}
+
+      {/* Pending invite prompt */}
+      {pendingInvite !== null && (
+        <Card>
+          <div className="space-y-4">
+            <div>
+              <h3 className="text-lg font-medium text-gray-900 dark:text-white">Join Sync Space</h3>
+              <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                You&apos;ve been invited to join a sync space
+              </p>
+            </div>
+
+            <div className="flex gap-2">
+              <Button onClick={handleAcceptInvite}>Join Space</Button>
+              <Button variant="ghost" onClick={clearPendingInvite}>
+                Cancel
+              </Button>
+            </div>
+          </div>
+        </Card>
+      )}
+
+      {/* Sync Toggle - Always visible */}
       <Card>
         <div className="flex items-center justify-between">
           <div>
             <h3 className="font-medium text-gray-900 dark:text-white">P2P Sync</h3>
             <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
-              Sync your data across devices using peer-to-peer connection
+              Sync your data across devices
             </p>
           </div>
           <button
             type="button"
             onClick={handleToggleSync}
             className={`relative inline-flex h-6 w-11 flex-shrink-0 cursor-pointer rounded-full border-2 border-transparent transition-colors duration-200 ease-in-out focus:outline-none focus:ring-2 focus:ring-indigo-500 focus:ring-offset-2 ${
-              isEnabled ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'
+              isEnabled || wantsSyncEnabled ? 'bg-indigo-600' : 'bg-gray-200 dark:bg-gray-700'
             }`}
             role="switch"
-            aria-checked={isEnabled}
+            aria-checked={isEnabled || wantsSyncEnabled}
           >
             <span
               className={`pointer-events-none inline-block h-5 w-5 transform rounded-full bg-white shadow ring-0 transition duration-200 ease-in-out ${
-                isEnabled ? 'translate-x-5' : 'translate-x-0'
+                isEnabled || wantsSyncEnabled ? 'translate-x-5' : 'translate-x-0'
               }`}
             />
           </button>
         </div>
       </Card>
 
+      {/* Setup flow - shown when user wants sync but needs configuration */}
+      {showSetup && (
+        <>
+          {/* Step 1: Device name setup */}
+          {deviceName === null && <DeviceNameSetup onComplete={handleDeviceNameComplete} />}
+
+          {/* Step 2: Create or join space (only after device name is set) */}
+          {deviceName !== null && spaceId === null && view === 'main' && (
+            <Card>
+              <div className="space-y-4">
+                <div>
+                  <h3 className="text-lg font-medium text-gray-900 dark:text-white">
+                    Set Up Sync Space
+                  </h3>
+                  <p className="mt-1 text-sm text-gray-500 dark:text-gray-400">
+                    Create a new space or join an existing one
+                  </p>
+                </div>
+
+                <div className="rounded-lg bg-gray-50 px-4 py-3 dark:bg-gray-800">
+                  <div className="flex items-center gap-2">
+                    <svg
+                      className="h-4 w-4 text-gray-400"
+                      fill="none"
+                      viewBox="0 0 24 24"
+                      stroke="currentColor"
+                    >
+                      <path
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                        strokeWidth={2}
+                        d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                      />
+                    </svg>
+                    <span className="text-sm text-gray-600 dark:text-gray-400">
+                      Device: {deviceName}
+                    </span>
+                  </div>
+                </div>
+
+                <div className="space-y-2">
+                  <Button onClick={handleCreateSpace} className="w-full">
+                    Create New Sync Space
+                  </Button>
+                  <Button
+                    variant="secondary"
+                    onClick={(): void => {
+                      setView('join')
+                    }}
+                    className="w-full"
+                  >
+                    Join Existing Space
+                  </Button>
+                </div>
+              </div>
+            </Card>
+          )}
+
+          {/* Join space view */}
+          {deviceName !== null && view === 'join' && (
+            <JoinSpace
+              onJoin={handleJoinSpace}
+              onCancel={(): void => {
+                setView('main')
+              }}
+            />
+          )}
+        </>
+      )}
+
+      {/* Active sync status - shown when sync is enabled */}
       {isEnabled && (
         <>
           {/* Status */}
@@ -108,9 +253,9 @@ export function SyncSettings({ className = '' }: SyncSettingsProps): ReactElemen
               </div>
 
               <div className="flex items-center justify-between">
-                <span className="text-sm text-gray-600 dark:text-gray-400">Connected Peers</span>
+                <span className="text-sm text-gray-600 dark:text-gray-400">Device</span>
                 <span className="text-sm font-medium text-gray-900 dark:text-white">
-                  {String(connectedPeers)}
+                  {deviceName}
                 </span>
               </div>
 
@@ -122,121 +267,40 @@ export function SyncSettings({ className = '' }: SyncSettingsProps): ReactElemen
             </div>
           </Card>
 
-          {/* Room/Device Info */}
+          {/* Invite Display */}
+          {spaceId !== null && currentPassword !== null && (
+            <InviteDisplay spaceId={spaceId} password={currentPassword} />
+          )}
+
+          {/* Connected Devices */}
+          <ConnectedDevices devices={connectedDevices} />
+
+          {/* Create New Space (to kick devices) */}
           <Card>
-            <h4 className="mb-3 text-sm font-medium text-gray-900 dark:text-white">Device Info</h4>
-            <div className="space-y-3">
-              <div>
-                <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">
-                  Room Code
-                </label>
-                <div className="flex items-center gap-2">
-                  <code className="flex-1 rounded bg-gray-100 px-3 py-2 font-mono text-sm text-gray-800 dark:bg-gray-800 dark:text-gray-200">
-                    {roomName}
-                  </code>
-                  <Button variant="ghost" size="sm" onClick={(): void => void handleCopyRoomCode()}>
-                    {copied ? (
-                      <svg
-                        className="h-4 w-4 text-green-500"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M5 13l4 4L19 7"
-                        />
-                      </svg>
-                    ) : (
-                      <svg
-                        className="h-4 w-4"
-                        fill="none"
-                        viewBox="0 0 24 24"
-                        stroke="currentColor"
-                      >
-                        <path
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          strokeWidth={2}
-                          d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
-                        />
-                      </svg>
-                    )}
-                  </Button>
-                </div>
-                <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-                  Share this code with other devices to sync
-                </p>
-              </div>
-
-              <div>
-                <label className="mb-1 block text-xs text-gray-500 dark:text-gray-400">
-                  Device ID
-                </label>
-                <code className="block truncate rounded bg-gray-100 px-3 py-2 font-mono text-xs text-gray-600 dark:bg-gray-800 dark:text-gray-400">
-                  {deviceId}
-                </code>
-              </div>
-            </div>
-          </Card>
-
-          {/* Connect New Device */}
-          <Card>
-            <h4 className="mb-3 text-sm font-medium text-gray-900 dark:text-white">
-              Connect New Device
-            </h4>
-
-            {!showJoinRoom ? (
-              <div className="space-y-2">
-                <p className="text-sm text-gray-500 dark:text-gray-400">
-                  To connect another device, either:
-                </p>
-                <ul className="ml-4 list-disc space-y-1 text-sm text-gray-500 dark:text-gray-400">
-                  <li>Share your room code above with the other device</li>
-                  <li>Or enter a room code from another device below</li>
-                </ul>
-                <Button
-                  variant="secondary"
-                  size="sm"
-                  className="mt-3"
-                  onClick={(): void => {
-                    setShowJoinRoom(true)
-                  }}
-                >
-                  Join Another Room
-                </Button>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                <Input
-                  label="Room Code"
-                  value={joinRoomCode}
-                  onChange={(e): void => {
-                    setJoinRoomCode(e.target.value)
-                  }}
-                  placeholder="Enter room code..."
-                />
-                <div className="flex gap-2">
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={(): void => {
-                      setShowJoinRoom(false)
-                      setJoinRoomCode('')
-                    }}
-                  >
-                    Cancel
-                  </Button>
-                  <Button size="sm" onClick={handleJoinRoom} disabled={joinRoomCode.trim() === ''}>
-                    Join Room
-                  </Button>
-                </div>
-              </div>
-            )}
+            <h4 className="mb-2 text-sm font-medium text-gray-900 dark:text-white">Manage Space</h4>
+            <p className="mb-3 text-xs text-gray-500 dark:text-gray-400">
+              Create a new space to remove unwanted devices. You&apos;ll need to re-invite devices
+              you want to keep.
+            </p>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleCreateSpace}
+              className="text-red-600 hover:text-red-700 dark:text-red-400"
+            >
+              Create New Space
+            </Button>
           </Card>
         </>
+      )}
+
+      {/* Disabled state message - only when sync is off and not in setup */}
+      {!isEnabled && !showSetup && (
+        <Card>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            Enable sync to share your data across devices
+          </p>
+        </Card>
       )}
     </div>
   )

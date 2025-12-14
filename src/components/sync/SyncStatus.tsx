@@ -54,7 +54,8 @@ function getStatusInfo(
 }
 
 export function SyncStatus({ className = '', showLabel = true }: SyncStatusProps): ReactElement {
-  const { isEnabled, isOnline, isSyncing, connectedPeers } = useSyncStatus()
+  const { isEnabled, isOnline, isSyncing, connectedDevices } = useSyncStatus()
+  const connectedPeers = connectedDevices.length > 0 ? connectedDevices.length - 1 : 0 // Exclude self
   const { status, label, color } = getStatusInfo(isEnabled, isOnline, isSyncing, connectedPeers)
 
   return (

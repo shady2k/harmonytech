@@ -2,32 +2,35 @@ import { useState, useEffect, useCallback } from 'react'
 import {
   getSyncProvider,
   isSyncConnected,
-  getConnectedPeersCount,
   initSyncProvider,
   disconnectSync,
-  getRoomName,
-  setRoomName,
+  getSpaceId,
   getDeviceId,
+  getDeviceName as getDeviceNameFromStorage,
+  setDeviceName as setDeviceNameInStorage,
+  hasDeviceName,
+  hasSpaceConfig,
+  createSpace as createSpaceInStorage,
+  joinSpace as joinSpaceInStorage,
+  clearSpaceConfig,
+  getAwarenessStates,
+  initSyncBridge,
+  cleanupSyncBridge,
+  isSyncBridgeInitialized,
+  checkVersionMismatch,
+  getConnectedDevices,
 } from '@/lib/sync'
-import { initSyncBridge, cleanupSyncBridge, isSyncBridgeInitialized } from '@/lib/rxdb-yjs-sync'
 import { useDatabase } from './useDatabase'
-
-export interface SyncStatus {
-  isEnabled: boolean
-  isOnline: boolean
-  isSyncing: boolean
-  connectedPeers: number
-  lastSyncTime: Date | null
-  syncError: string | null
-  roomName: string
-  deviceId: string
-}
+import type { ConnectedDevice, VersionMismatch, SyncStatus } from '@/types/sync'
 
 interface UseSyncStatusReturn extends SyncStatus {
   enableSync: () => void
   disableSync: () => void
-  setRoom: (roomName: string) => void
+  createSpace: () => { spaceId: string; password: string }
+  joinSpace: (spaceId: string, password: string) => void
+  setDeviceName: (name: string) => void
   refreshStatus: () => void
+  dismissVersionMismatch: () => void
 }
 
 export function useSyncStatus(): UseSyncStatusReturn {
@@ -37,24 +40,53 @@ export function useSyncStatus(): UseSyncStatusReturn {
     isEnabled: false,
     isOnline: navigator.onLine,
     isSyncing: false,
-    connectedPeers: 0,
-    lastSyncTime: null,
+    connectedDevices: [],
+    deviceName: getDeviceNameFromStorage(),
+    spaceId: getSpaceId(),
+    versionMismatch: null,
     syncError: null,
-    roomName: getRoomName(),
-    deviceId: getDeviceId(),
   })
 
   // Refresh status from provider
   const refreshStatus = useCallback((): void => {
     const provider = getSyncProvider()
+    const awarenessStates = getAwarenessStates()
+    const currentDeviceId = getDeviceId()
+
     setStatus((prev) => ({
       ...prev,
       isEnabled: provider !== null,
       isSyncing: isSyncConnected(),
-      connectedPeers: getConnectedPeersCount(),
+      connectedDevices: getConnectedDevices(awarenessStates, currentDeviceId),
       isOnline: navigator.onLine,
-      roomName: getRoomName(),
+      spaceId: getSpaceId(),
+      deviceName: getDeviceNameFromStorage(),
     }))
+  }, [])
+
+  // Check version mismatch and update device list
+  const handleAwarenessChange = useCallback((): void => {
+    const awarenessStates = getAwarenessStates()
+    const currentDeviceId = getDeviceId()
+    const versionMismatch = checkVersionMismatch(awarenessStates)
+    const connectedDevices = getConnectedDevices(awarenessStates, currentDeviceId)
+
+    setStatus((prev) => ({
+      ...prev,
+      connectedDevices,
+      versionMismatch: versionMismatch ?? prev.versionMismatch,
+    }))
+
+    // Auto-disconnect if version mismatch detected
+    if (versionMismatch !== null) {
+      disconnectSync()
+      setStatus((prev) => ({
+        ...prev,
+        isEnabled: false,
+        isSyncing: false,
+        syncError: `Update required. Peer "${versionMismatch.peerDeviceName}" is running version ${String(versionMismatch.peerVersion)}, you have version ${String(versionMismatch.localVersion)}.`,
+      }))
+    }
   }, [])
 
   // Enable sync
@@ -67,8 +99,24 @@ export function useSyncStatus(): UseSyncStatusReturn {
       return
     }
 
+    if (!hasDeviceName()) {
+      setStatus((prev) => ({
+        ...prev,
+        syncError: 'Device name not set',
+      }))
+      return
+    }
+
+    if (!hasSpaceConfig()) {
+      setStatus((prev) => ({
+        ...prev,
+        syncError: 'Sync space not configured',
+      }))
+      return
+    }
+
     try {
-      // Initialize provider if not already done
+      // Initialize provider
       const provider = initSyncProvider()
 
       // Initialize sync bridge
@@ -81,24 +129,17 @@ export function useSyncStatus(): UseSyncStatusReturn {
         setStatus((prev) => ({
           ...prev,
           isSyncing: event.connected,
-          lastSyncTime: event.connected ? new Date() : prev.lastSyncTime,
-        }))
-      }
-
-      const handlePeersChange = (): void => {
-        setStatus((prev) => ({
-          ...prev,
-          connectedPeers: getConnectedPeersCount(),
         }))
       }
 
       provider.on('status', handleStatus)
-      provider.awareness.on('change', handlePeersChange)
+      provider.awareness.on('change', handleAwarenessChange)
 
       setStatus((prev) => ({
         ...prev,
         isEnabled: true,
         syncError: null,
+        versionMismatch: null,
       }))
 
       refreshStatus()
@@ -108,7 +149,7 @@ export function useSyncStatus(): UseSyncStatusReturn {
         syncError: error instanceof Error ? error.message : 'Failed to enable sync',
       }))
     }
-  }, [db, isDbLoading, refreshStatus])
+  }, [db, isDbLoading, refreshStatus, handleAwarenessChange])
 
   // Disable sync
   const disableSync = useCallback((): void => {
@@ -119,29 +160,64 @@ export function useSyncStatus(): UseSyncStatusReturn {
       ...prev,
       isEnabled: false,
       isSyncing: false,
-      connectedPeers: 0,
+      connectedDevices: [],
     }))
   }, [])
 
-  // Set room name
-  const setRoom = useCallback(
-    (newRoomName: string): void => {
-      // Disable current sync
-      disableSync()
+  // Create new sync space
+  const createSpace = useCallback((): { spaceId: string; password: string } => {
+    // Disable current sync if active
+    disableSync()
+    clearSpaceConfig()
 
-      // Update room name
-      setRoomName(newRoomName)
+    // Create new space
+    const { spaceId, password } = createSpaceInStorage()
+
+    setStatus((prev) => ({
+      ...prev,
+      spaceId,
+      syncError: null,
+    }))
+
+    return { spaceId, password }
+  }, [disableSync])
+
+  // Join existing sync space
+  const joinSpace = useCallback(
+    (spaceId: string, password: string): void => {
+      // Disable current sync if active
+      disableSync()
+      clearSpaceConfig()
+
+      // Store new space config
+      joinSpaceInStorage(spaceId, password)
 
       setStatus((prev) => ({
         ...prev,
-        roomName: newRoomName,
+        spaceId,
+        syncError: null,
       }))
-
-      // Re-enable sync with new room
-      enableSync()
     },
-    [disableSync, enableSync]
+    [disableSync]
   )
+
+  // Set device name
+  const setDeviceName = useCallback((name: string): void => {
+    setDeviceNameInStorage(name)
+    setStatus((prev) => ({
+      ...prev,
+      deviceName: name,
+    }))
+  }, [])
+
+  // Dismiss version mismatch (continue offline)
+  const dismissVersionMismatch = useCallback((): void => {
+    setStatus((prev) => ({
+      ...prev,
+      versionMismatch: null,
+      syncError: null,
+    }))
+  }, [])
 
   // Listen to online/offline events
   useEffect(() => {
@@ -162,18 +238,17 @@ export function useSyncStatus(): UseSyncStatusReturn {
     }
   }, [])
 
-  // Cleanup on unmount
-  useEffect(() => {
-    return (): void => {
-      // Don't cleanup sync on unmount - it should persist
-    }
-  }, [])
-
   return {
     ...status,
     enableSync,
     disableSync,
-    setRoom,
+    createSpace,
+    joinSpace,
+    setDeviceName,
     refreshStatus,
+    dismissVersionMismatch,
   }
 }
+
+// Re-export types for convenience
+export type { SyncStatus, ConnectedDevice, VersionMismatch }
