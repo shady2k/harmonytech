@@ -29,18 +29,22 @@ const STORAGE_KEYS = {
 }
 
 /**
- * Default signaling servers for WebRTC peer discovery
+ * Get signaling servers for WebRTC peer discovery
  *
- * MVP Note: Uses public y-webrtc signaling servers.
- * These are community-maintained and may have rate limits, downtime, or no SLA.
- * Future improvement: Deploy self-hosted signaling server.
- * See: https://github.com/yjs/y-webrtc#signaling
+ * In development, uses local signaling server on same host as the app.
+ * This allows LAN testing - signaling server accessible via LAN IP.
+ *
+ * To run local signaling server: npm run signaling (listens on port 4444)
+ * To run both dev server and signaling: npm run dev:all
  */
-const DEFAULT_SIGNALING_SERVERS = [
-  'wss://signaling.yjs.dev',
-  'wss://y-webrtc-signaling-eu.herokuapp.com',
-  'wss://y-webrtc-signaling-us.herokuapp.com',
-]
+function getSignalingServers(): string[] {
+  if (import.meta.env.DEV) {
+    // Use same hostname as the app (works for localhost and LAN IPs)
+    const host = window.location.hostname
+    return [`ws://${host}:4444`]
+  }
+  return ['wss://signaling.yjs.dev']
+}
 
 // =============================================================================
 // Device Identity
@@ -223,7 +227,7 @@ export function initSyncProvider(config?: Partial<SyncProviderConfig>): WebrtcPr
   }
 
   const doc = getYDoc()
-  const signaling = config?.signaling ?? DEFAULT_SIGNALING_SERVERS
+  const signaling = config?.signaling ?? getSignalingServers()
 
   webrtcProvider = new WebrtcProvider(spaceId, doc, {
     signaling,
