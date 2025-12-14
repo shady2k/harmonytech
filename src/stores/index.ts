@@ -10,3 +10,4 @@ export {
   type CurrentSuggestions,
 } from './capture.store'
 export { useAICacheStore, initAICacheSubscription } from './ai-cache.store'
+export { useRecommendationsStore, type Recommendation } from './recommendations.store'

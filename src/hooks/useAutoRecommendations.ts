@@ -1,24 +1,20 @@
 /**
  * Auto-recommendations hook
  * Automatically fetches recommendations on mount with sensible defaults
- * Uses the unified useAI hook for caching
+ * Uses Zustand store to persist recommendations across view changes
  */
 
-import { useState, useCallback, useEffect } from 'react'
+import { useCallback, useEffect, useRef, useMemo } from 'react'
 import { useTasks } from './useTasks'
 import { useThoughts } from './useThoughts'
 import { useAI } from './useAI'
+import { useRecommendationsStore, type Recommendation } from '@/stores/recommendations.store'
 import { aiService } from '@/services/ai'
 import { isTaskScheduledNow } from '@/lib/recurrence-utils'
-import type { Task, TaskContext, TaskEnergy } from '@/types/task'
+import type { TaskContext, TaskEnergy } from '@/types/task'
 import type { Thought } from '@/types/thought'
 
-export interface Recommendation {
-  taskId: string
-  task: Task | null
-  reasoning: string
-  matchScore: number
-}
+export type { Recommendation } from '@/stores/recommendations.store'
 
 export interface AutoRecommendationsResult {
   recommendations: Recommendation[]
@@ -49,28 +45,63 @@ function getDefaultEnergy(): TaskEnergy {
   return 'low' // Evening/night
 }
 
-export function useAutoRecommendations(): UseAutoRecommendationsReturn {
-  const [recommendations, setRecommendations] = useState<Recommendation[]>([])
-  const [alternativeActions, setAlternativeActions] = useState<string[]>([])
-  const [isLoading, setIsLoading] = useState(false)
-  const [error, setError] = useState<string | null>(null)
+// How long before we consider cached recommendations stale (30 seconds)
+const FRESHNESS_THRESHOLD_MS = 30 * 1000
 
+export function useAutoRecommendations(): UseAutoRecommendationsReturn {
   const { tasks } = useTasks()
   const { thoughts } = useThoughts()
   const { getRecommendations, isAIAvailable } = useAI()
 
+  // Use store for persistent state
+  const recommendations = useRecommendationsStore((state) => state.recommendations)
+  const alternativeActions = useRecommendationsStore((state) => state.alternativeActions)
+  const isLoading = useRecommendationsStore((state) => state.isLoading)
+  const error = useRecommendationsStore((state) => state.error)
+  const lastFetchedAt = useRecommendationsStore((state) => state.lastFetchedAt)
+  const isStale = useRecommendationsStore((state) => state.isStale)
+  const setRecommendations = useRecommendationsStore((state) => state.setRecommendations)
+  const setLoading = useRecommendationsStore((state) => state.setLoading)
+  const setError = useRecommendationsStore((state) => state.setError)
+  const markStale = useRecommendationsStore((state) => state.markStale)
+
+  // Track previous task count to detect changes
+  const prevTaskCountRef = useRef<number>(tasks.length)
+
   // Get unprocessed and recent thoughts for fallback UI
-  const unprocessedThoughts = thoughts.filter((t) => !t.aiProcessed).slice(0, 5)
-  const recentThoughts = thoughts
-    .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
-    .slice(0, 5)
+  const unprocessedThoughts = useMemo(
+    () => thoughts.filter((t) => !t.aiProcessed).slice(0, 5),
+    [thoughts]
+  )
+  const recentThoughts = useMemo(
+    () =>
+      [...thoughts]
+        .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
+        .slice(0, 5),
+    [thoughts]
+  )
+
+  // Filter to incomplete tasks that are currently actionable
+  const incompleteTasks = useMemo(
+    () =>
+      tasks.filter(
+        (task) =>
+          !task.isCompleted &&
+          !task.isSomedayMaybe &&
+          isTaskScheduledNow(task.scheduledStart, task.scheduledEnd)
+      ),
+    [tasks]
+  )
 
   const refresh = useCallback(
-    async (context?: {
-      energy?: TaskEnergy
-      timeAvailable?: number
-      location?: TaskContext
-    }): Promise<void> => {
+    async (
+      context?: {
+        energy?: TaskEnergy
+        timeAvailable?: number
+        location?: TaskContext
+      },
+      isBackgroundRefresh = false
+    ): Promise<void> => {
       // Use smart defaults if no context provided
       const energy = context?.energy ?? getDefaultEnergy()
       const timeAvailable = context?.timeAvailable ?? 30 // Default 30 minutes
@@ -82,22 +113,19 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
         return
       }
 
-      // Filter to incomplete tasks that are currently actionable
-      const incompleteTasks = tasks.filter(
-        (task) =>
-          !task.isCompleted &&
-          !task.isSomedayMaybe &&
-          isTaskScheduledNow(task.scheduledStart, task.scheduledEnd)
-      )
-
       if (incompleteTasks.length === 0) {
-        setRecommendations([])
-        setAlternativeActions(['No tasks available. Add some tasks to get recommendations!'])
+        setRecommendations([], ['No tasks available. Add some tasks to get recommendations!'], {
+          energy,
+          timeAvailable,
+          location,
+        })
         return
       }
 
-      setIsLoading(true)
-      setError(null)
+      // Only show loading indicator for non-background refreshes
+      if (!isBackgroundRefresh) {
+        setLoading(true)
+      }
 
       try {
         const result = await getRecommendations(incompleteTasks, {
@@ -119,32 +147,72 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
           })
           .filter((rec) => rec.task !== null)
 
-        setRecommendations(mappedRecommendations)
-        setAlternativeActions(result.alternativeActions)
+        setRecommendations(mappedRecommendations, result.alternativeActions, {
+          energy,
+          timeAvailable,
+          location,
+        })
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to get recommendations'
         setError(message)
-      } finally {
-        setIsLoading(false)
       }
     },
-    [isAIAvailable, tasks, getRecommendations]
+    [isAIAvailable, incompleteTasks, getRecommendations, setRecommendations, setLoading, setError]
   )
 
-  // Auto-fetch on mount if AI is available
-  // Small delay to ensure provider is fully initialized after settings load
+  // Public refresh function (always shows loading)
+  const publicRefresh = useCallback(
+    async (context?: {
+      energy?: TaskEnergy
+      timeAvailable?: number
+      location?: TaskContext
+    }): Promise<void> => {
+      await refresh(context, false)
+    },
+    [refresh]
+  )
+
+  // Mark as stale when task count changes
   useEffect(() => {
-    if (!isAIAvailable || tasks.length === 0) {
+    if (prevTaskCountRef.current !== tasks.length && lastFetchedAt !== null) {
+      markStale()
+    }
+    prevTaskCountRef.current = tasks.length
+  }, [tasks.length, lastFetchedAt, markStale])
+
+  // Auto-fetch on mount or when stale
+  useEffect(() => {
+    if (!isAIAvailable || incompleteTasks.length === 0) {
       return
     }
+
+    const hasCachedData = lastFetchedAt !== null && recommendations.length > 0
+    const isFresh = lastFetchedAt !== null && Date.now() - lastFetchedAt < FRESHNESS_THRESHOLD_MS
+
+    // If we have fresh data and it's not stale, skip fetch
+    if (hasCachedData && isFresh && !isStale) {
+      return
+    }
+
+    // Determine if this is a background refresh (we have cached data to show)
+    const isBackgroundRefresh = hasCachedData
+
     // Defer to next tick to ensure AI provider is initialized
     const timer = setTimeout(() => {
-      void refresh()
+      void refresh(undefined, isBackgroundRefresh)
     }, 50)
+
     return (): void => {
       clearTimeout(timer)
     }
-  }, [isAIAvailable, tasks.length, refresh])
+  }, [
+    isAIAvailable,
+    incompleteTasks.length,
+    lastFetchedAt,
+    isStale,
+    recommendations.length,
+    refresh,
+  ])
 
   return {
     recommendations,
@@ -154,6 +222,6 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
     isLoading,
     error,
     isAIAvailable,
-    refresh,
+    refresh: publicRefresh,
   }
 }
