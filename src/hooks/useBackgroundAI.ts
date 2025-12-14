@@ -16,6 +16,7 @@ import { aiQueue } from '@/lib/ai-queue'
 import { RETRY_DELAYS, MAX_RETRIES } from '@/lib/constants/ai'
 import { resolveExtractedTaskDates } from '@/lib/date-resolver'
 import type { Thought, ProcessingStatus } from '@/types/thought'
+import type { VoiceRecording } from '@/types/voice-recording'
 
 const log = logger.backgroundAI
 
@@ -37,7 +38,7 @@ const CONFIG_ERROR_COOLDOWN_MS = 30000 // Wait 30s before retrying after config 
 
 export function useBackgroundAI(): BackgroundAIState {
   const { aiEnabled, aiConfidenceThreshold } = useSettingsStore()
-  const { extractTasks, suggestTaskProperties, isAIAvailable } = useAI()
+  const { extractTasks, suggestTaskProperties, processVoice, isAIAvailable } = useAI()
   const isProcessingRef = useRef(false)
   const [state, setState] = useState<BackgroundAIState>({
     pendingCount: 0,
@@ -94,6 +95,105 @@ export function useBackgroundAI(): BackgroundAIState {
     []
   )
 
+  // Classify STT errors as temporary (retry) or permanent (no retry)
+  const isTemporaryError = useCallback((errorMessage: string): boolean => {
+    const temporaryPatterns = [
+      'timeout',
+      'network',
+      'ECONNREFUSED',
+      'ETIMEDOUT',
+      'fetch failed',
+      'rate limit',
+      '429',
+      '503',
+      '502',
+      '504',
+    ]
+    const lowerMessage = errorMessage.toLowerCase()
+    return temporaryPatterns.some((pattern) => lowerMessage.includes(pattern.toLowerCase()))
+  }, [])
+
+  // Process pending voice recordings
+  const processVoiceRecording = useCallback(
+    async (recording: VoiceRecording): Promise<void> => {
+      const now = new Date().toISOString()
+      const currentRetryCount = recording.retryCount ?? 0
+
+      // Update recording status to transcribing
+      await db.voiceRecordings.update(recording.id, {
+        status: 'transcribing',
+      })
+
+      try {
+        // Convert base64 back to blob for processing
+        const binaryString = atob(recording.audioData)
+        const bytes = new Uint8Array(binaryString.length)
+        for (let i = 0; i < binaryString.length; i++) {
+          bytes[i] = binaryString.charCodeAt(i)
+        }
+        const audioBlob = new Blob([bytes], { type: 'audio/wav' })
+
+        // Transcribe via AI queue
+        log.debug('Transcribing voice recording:', recording.id)
+        const result = await aiQueue.enqueue(() => processVoice(audioBlob), 0) // High priority
+
+        log.debug('Transcription result:', result.transcript.substring(0, 100))
+
+        // Create a new thought from the transcript
+        const thoughtId = `thought-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`
+        await db.thoughts.add({
+          id: thoughtId,
+          content: result.transcript,
+          tags: [],
+          linkedTaskIds: [],
+          aiProcessed: false,
+          processingStatus: 'unprocessed', // Will be processed for task extraction
+          sourceRecordingId: recording.id,
+          createdAt: now,
+          updatedAt: now,
+          createdByDeviceId: recording.createdByDeviceId,
+        })
+
+        // Mark recording as completed with link to created thought
+        await db.voiceRecordings.update(recording.id, {
+          status: 'completed',
+          transcript: result.transcript,
+          linkedThoughtId: thoughtId,
+          processedAt: now,
+          retryCount: 0, // Reset retry count on success
+        })
+
+        log.debug('Voice recording processed successfully:', recording.id, '-> thought:', thoughtId)
+      } catch (err) {
+        const errorMessage = err instanceof Error ? err.message : 'Transcription failed'
+        log.error('Voice transcription error:', errorMessage)
+
+        // Check if this is a temporary error that should be retried
+        if (isTemporaryError(errorMessage) && currentRetryCount < MAX_RETRIES) {
+          // Schedule retry by keeping status as pending with incremented retry count
+          const retryDelay = RETRY_DELAYS[Math.min(currentRetryCount, RETRY_DELAYS.length - 1)]
+          log.info(
+            `Temporary STT error, retry ${String(currentRetryCount + 1)}/${String(MAX_RETRIES)} in ${String(retryDelay)}ms`
+          )
+
+          await db.voiceRecordings.update(recording.id, {
+            status: 'pending', // Back to pending for retry
+            retryCount: currentRetryCount + 1,
+            errorMessage,
+          })
+        } else {
+          // Permanent failure - mark as failed, user can retry via inbox
+          await db.voiceRecordings.update(recording.id, {
+            status: 'failed',
+            errorMessage,
+            retryCount: currentRetryCount,
+          })
+        }
+      }
+    },
+    [processVoice, isTemporaryError]
+  )
+
   useEffect(() => {
     const processUnprocessedThoughts = async (): Promise<void> => {
       // Prevent concurrent processing runs
@@ -145,8 +245,18 @@ export function useBackgroundAI(): BackgroundAIState {
 
         setState((prev) => ({ ...prev, pendingCount: totalPending }))
 
+        // Check for pending voice recordings first (only on this device)
+        const pendingRecordings = await db.voiceRecordings
+          .where('status')
+          .equals('pending')
+          .filter((recording) => recording.createdByDeviceId === currentDeviceId)
+          .limit(1)
+          .toArray()
+
+        const hasWork = thoughtsToProcess.length > 0 || pendingRecordings.length > 0
+
         // No work to do
-        if (thoughtsToProcess.length === 0) {
+        if (!hasWork) {
           return
         }
 
@@ -160,6 +270,12 @@ export function useBackgroundAI(): BackgroundAIState {
         if (Date.now() - lastConfigErrorTime < CONFIG_ERROR_COOLDOWN_MS) {
           log.debug('Config error cooldown active, skipping processing')
           return
+        }
+
+        // Process voice recordings first (higher priority)
+        if (pendingRecordings.length > 0) {
+          await processVoiceRecording(pendingRecordings[0])
+          return // Process one item at a time
         }
 
         // Process the thought (one at a time)
@@ -392,6 +508,7 @@ export function useBackgroundAI(): BackgroundAIState {
     isAIAvailable,
     extractTasks,
     suggestTaskProperties,
+    processVoiceRecording,
     updateProcessingStatus,
     calculateOverallConfidence,
   ])

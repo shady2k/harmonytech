@@ -8,6 +8,7 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
   variant?: ButtonVariant
   size?: ButtonSize
   isLoading?: boolean
+  shortcut?: string // e.g., "⌘↩" to show keyboard shortcut hint
 }
 
 const VARIANT_CLASSES: Record<ButtonVariant, string> = {
@@ -32,6 +33,7 @@ export function Button({
   variant = 'primary',
   size = 'md',
   isLoading = false,
+  shortcut,
   disabled,
   className = '',
   ...props
@@ -69,7 +71,14 @@ export function Button({
           <span>Loading...</span>
         </>
       ) : (
-        children
+        <>
+          {children}
+          {shortcut !== undefined && (
+            <kbd className="ml-1 rounded bg-white/20 px-1.5 py-0.5 text-xs font-normal opacity-70">
+              {shortcut}
+            </kbd>
+          )}
+        </>
       )}
     </button>
   )

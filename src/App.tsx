@@ -14,10 +14,22 @@ import { InboxView } from '@/components/inbox/InboxView'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
 import { KeyboardShortcutsModal } from '@/components/ui/KeyboardShortcutsModal'
-import { useAI } from '@/hooks/useAI'
 import { useBackgroundAI } from '@/hooks/useBackgroundAI'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { getDeviceId } from '@/lib/sync'
+
+function blobToBase64(blob: Blob): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onloadend = (): void => {
+      const dataUrl = reader.result as string
+      const parts = dataUrl.split(',')
+      resolve(parts.length > 1 ? parts[1] : '')
+    }
+    reader.onerror = reject
+    reader.readAsDataURL(blob)
+  })
+}
 
 function AppContent(): ReactElement {
   const { db, isLoading: isDbLoading, error: dbError } = useDatabaseContext()
@@ -33,7 +45,6 @@ function AppContent(): ReactElement {
     reset: resetCapture,
   } = useCaptureStore()
   const { subscribeToDatabase } = useSettingsStore()
-  const { processVoice, isAIAvailable } = useAI()
 
   // Background AI processor for thought-first capture
   useBackgroundAI()
@@ -60,59 +71,36 @@ function AppContent(): ReactElement {
   }, [processingState, inputText, setExtractedItems, setProcessingState])
 
   // Process voice when processingState changes to 'transcribing'
-  // Thought-first: transcribe and create thought, AI extracts tasks in background
+  // Save recording immediately, transcription happens in background
+  // NOTE: Thought is NOT created here - it's created by useBackgroundAI on successful transcription
   useEffect(() => {
     if (processingState !== 'transcribing' || audioBlob === null) {
       return
     }
 
-    const processAudio = async (): Promise<void> => {
-      // Voice requires AI for transcription
-      if (!isAIAvailable) {
-        // Save a placeholder thought - the actual audio cannot be stored without AI transcription
-        // User is informed they need to configure AI for voice capture
-        setExtractedItems({
-          tasks: [],
-          thoughts: [
-            {
-              content:
-                '[Voice recording] Unable to transcribe - AI provider not configured. Please configure an AI provider in Settings for voice capture.',
-              tags: ['voice-pending'],
-            },
-          ],
-        })
-        setProcessingState('done')
-        return
-      }
+    const saveRecording = async (): Promise<void> => {
+      const now = new Date().toISOString()
+      const recordingId = `recording-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`
 
-      try {
-        const result = await processVoice(audioBlob)
-        // Create a thought from the transcript - AI will extract tasks in background
-        setExtractedItems({
-          tasks: [],
-          thoughts: [{ content: result.transcript, tags: [] }],
-        })
-        setProcessingState('done')
-      } catch (err) {
-        // Show error as a thought
-        const message = err instanceof Error ? err.message : 'Voice processing failed'
-        setExtractedItems({
-          tasks: [],
-          thoughts: [{ content: `Error: ${message}`, tags: [] }],
-        })
-        setProcessingState('done')
-      }
+      // Convert blob to base64 for storage
+      const audioData = await blobToBase64(audioBlob)
+
+      // Save voice recording with pending status (no thought yet - created on successful transcription)
+      await db.voiceRecordings.add({
+        id: recordingId,
+        audioData,
+        status: 'pending',
+        createdByDeviceId: getDeviceId(),
+        createdAt: now,
+      })
+
+      // Close modal - transcription will happen in background
+      resetCapture()
+      closeCapture()
     }
 
-    void processAudio()
-  }, [
-    processingState,
-    audioBlob,
-    isAIAvailable,
-    processVoice,
-    setExtractedItems,
-    setProcessingState,
-  ])
+    void saveRecording()
+  }, [processingState, audioBlob, db, resetCapture, closeCapture])
 
   const handleSave = useCallback(async (): Promise<void> => {
     if (extractedItems === null) {

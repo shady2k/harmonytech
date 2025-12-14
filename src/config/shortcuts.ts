@@ -45,6 +45,17 @@ export const GENERAL_SHORTCUTS = {
   help: { key: 'Slash', label: '?', description: 'Show shortcuts' }, // Shift+Slash = ?
 } as const
 
+// Capture modal shortcuts - these use modifier keys
+export const CAPTURE_SHORTCUTS = {
+  submit: { key: 'Enter', modifier: 'cmd', label: '⌘ + ↩', description: 'Send' },
+  voiceRecord: {
+    key: 'KeyM',
+    modifier: 'ctrl',
+    label: '⌃ + M',
+    description: 'Record voice',
+  },
+} as const
+
 // Helper to get view key mapping for the hook
 export function getViewKeyMap(): Record<string, ViewType> {
   const map: Record<string, ViewType> = {}

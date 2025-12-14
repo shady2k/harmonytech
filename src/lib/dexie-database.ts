@@ -2,6 +2,7 @@
  * Dexie Database - Single source of truth for IndexedDB
  *
  * Types are imported from Zod schemas in src/types/schemas/
+ * Migrations are defined in src/lib/db-migrations.ts
  */
 import Dexie, { type EntityTable } from 'dexie'
 import type { Task } from '@/types/task'
@@ -9,6 +10,8 @@ import type { Thought } from '@/types/thought'
 import type { Settings } from '@/types/settings'
 import type { Project } from '@/types/project'
 import type { VoiceRecording } from '@/types/voice-recording'
+import { getDeviceId } from '@/lib/sync'
+import { registerMigrations } from '@/lib/db-migrations'
 
 // Default settings created once when database is first created
 export const DEFAULT_SETTINGS: Settings = {
@@ -29,14 +32,8 @@ export class HarmonyDatabase extends Dexie {
   constructor() {
     super('harmonytech')
 
-    this.version(1).stores({
-      // Primary key is 'id', indexes after comma
-      tasks: 'id, createdAt, isCompleted, context, energy',
-      thoughts: 'id, createdAt, aiProcessed, processingStatus',
-      settings: 'id',
-      projects: 'id, name, isActive, createdAt',
-      voiceRecordings: 'id, createdAt',
-    })
+    // Register all migrations from dedicated file
+    registerMigrations(this, { getDeviceId })
 
     // Seed default settings when database is first created (runs exactly once)
     this.on('populate', () => {

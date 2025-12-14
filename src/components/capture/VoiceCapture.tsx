@@ -1,14 +1,16 @@
-import { useEffect, useCallback, type ReactElement } from 'react'
+import { useEffect, useCallback, useRef, type ReactElement } from 'react'
 import { useCaptureStore } from '@/stores'
 import { useVoiceRecording } from '@/hooks/useVoiceRecording'
 import { NavIcon } from '@/components/layout/NavIcon'
 import { Button } from '@/components/ui'
+import { CAPTURE_SHORTCUTS } from '@/config/shortcuts'
 
 interface VoiceCaptureProps {
   onRecordingComplete?: (blob: Blob) => void
+  autoStart?: boolean
 }
 
-export function VoiceCapture({ onRecordingComplete }: VoiceCaptureProps): ReactElement {
+export function VoiceCapture({ onRecordingComplete, autoStart }: VoiceCaptureProps): ReactElement {
   const {
     isRecording: storeIsRecording,
     startRecording: storeStartRecording,
@@ -52,6 +54,15 @@ export function VoiceCapture({ onRecordingComplete }: VoiceCaptureProps): ReactE
     }
   }, [error, setError])
 
+  // Auto-start recording when triggered by keyboard shortcut
+  const hasAutoStarted = useRef(false)
+  useEffect(() => {
+    if (autoStart === true && !isRecording && !hasAutoStarted.current) {
+      hasAutoStarted.current = true
+      void startRecording()
+    }
+  }, [autoStart, isRecording, startRecording])
+
   const handleToggleRecording = useCallback((): void => {
     if (isRecording) {
       stopRecording()
@@ -64,6 +75,32 @@ export function VoiceCapture({ onRecordingComplete }: VoiceCaptureProps): ReactE
     resetRecording()
     setProcessingState('idle')
   }, [resetRecording, setProcessingState])
+
+  // Keyboard shortcuts for voice recording
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent): void => {
+      // Stop recording with Escape, Enter, or Space
+      if (isRecording && (e.code === 'Escape' || e.code === 'Enter' || e.code === 'Space')) {
+        e.preventDefault()
+        stopRecording()
+        return
+      }
+
+      // Start recording with Control + M
+      if (!e.ctrlKey) return
+      if (e.metaKey || e.altKey || e.shiftKey) return
+
+      if (e.code === CAPTURE_SHORTCUTS.voiceRecord.key) {
+        e.preventDefault()
+        handleToggleRecording()
+      }
+    }
+
+    window.addEventListener('keydown', handleKeyDown)
+    return (): void => {
+      window.removeEventListener('keydown', handleKeyDown)
+    }
+  }, [handleToggleRecording, isRecording, stopRecording])
 
   return (
     <div className="flex flex-col items-center space-y-4">
@@ -93,10 +130,25 @@ export function VoiceCapture({ onRecordingComplete }: VoiceCaptureProps): ReactE
         </div>
       )}
 
-      {/* Instructions */}
+      {/* Instructions with shortcut hint */}
       {!isRecording && !storeIsRecording && (
         <p className="text-center text-sm text-gray-500 dark:text-gray-400">
-          Tap to start voice recording
+          Tap or press{' '}
+          <kbd className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium dark:bg-gray-700">
+            {CAPTURE_SHORTCUTS.voiceRecord.label}
+          </kbd>{' '}
+          to record
+        </p>
+      )}
+
+      {/* Recording hint */}
+      {isRecording && (
+        <p className="text-center text-sm text-gray-500 dark:text-gray-400">
+          Press{' '}
+          <kbd className="rounded bg-gray-100 px-1.5 py-0.5 text-xs font-medium dark:bg-gray-700">
+            {CAPTURE_SHORTCUTS.voiceRecord.label}
+          </kbd>{' '}
+          to stop
         </p>
       )}
 

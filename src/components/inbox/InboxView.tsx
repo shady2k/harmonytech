@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { useInbox } from '@/hooks/useInbox'
 import { useSettingsStore } from '@/stores/settings.store'
 import { QuickProcessCard } from './QuickProcessCard'
+import { VoiceRecordingCard } from './VoiceRecordingCard'
 import { EmptyInboxState } from './EmptyInboxState'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 
@@ -51,9 +52,13 @@ export function InboxView(): ReactElement {
       </div>
 
       <div className="space-y-3">
-        {items.map((thought) => (
-          <QuickProcessCard key={thought.id} thought={thought} />
-        ))}
+        {items.map((item) =>
+          item.type === 'thought' ? (
+            <QuickProcessCard key={item.data.id} thought={item.data} />
+          ) : (
+            <VoiceRecordingCard key={item.data.id} recording={item.data} />
+          )
+        )}
       </div>
     </div>
   )

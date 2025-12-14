@@ -46,8 +46,8 @@ export { projectSchema } from './project.schema'
 export type { Project } from './project.schema'
 
 // Voice Recording
-export { voiceRecordingSchema } from './voice-recording.schema'
-export type { VoiceRecording } from './voice-recording.schema'
+export { voiceRecordingSchema, voiceRecordingStatusSchema } from './voice-recording.schema'
+export type { VoiceRecording, VoiceRecordingStatus } from './voice-recording.schema'
 
 // Export/Import
 export { exportDataSchema, exportMetadataSchema } from './export.schema'

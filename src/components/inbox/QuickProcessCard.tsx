@@ -66,10 +66,19 @@ export function QuickProcessCard({ thought }: QuickProcessCardProps): ReactEleme
     setIsProcessing(true)
 
     try {
+      // Reset thought status
       await db.thoughts.update(thought.id, {
         processingStatus: 'unprocessed',
         updatedAt: new Date().toISOString(),
       })
+
+      // If this thought has a linked voice recording, reset it too
+      if (thought.sourceRecordingId !== undefined && thought.sourceRecordingId !== '') {
+        await db.voiceRecordings.update(thought.sourceRecordingId, {
+          status: 'pending',
+          errorMessage: undefined,
+        })
+      }
     } catch {
       // Handle error silently
     } finally {

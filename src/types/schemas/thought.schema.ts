@@ -3,7 +3,19 @@
  */
 import { z } from 'zod'
 
-export const processingStatusSchema = z.enum(['unprocessed', 'processing', 'processed', 'failed'])
+// Processing statuses:
+// - unprocessed: Needs AI processing
+// - processing: Currently being processed
+// - processed: Successfully processed
+// - failed: AI extraction failed, will auto-retry
+// - error: Permanent error (e.g., transcription failed), won't auto-retry
+export const processingStatusSchema = z.enum([
+  'unprocessed',
+  'processing',
+  'processed',
+  'failed',
+  'error',
+])
 export type ProcessingStatus = z.infer<typeof processingStatusSchema>
 
 export const thoughtSchema = z.object({

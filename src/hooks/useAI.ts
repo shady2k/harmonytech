@@ -56,6 +56,7 @@ export function useAI(): UseAIReturn {
   const [error, setError] = useState<string | null>(null)
 
   const {
+    aiProvider,
     textModel,
     voiceModel,
     isApiKeyValid,
@@ -118,7 +119,9 @@ export function useAI(): UseAIReturn {
         throw new Error('AI service not configured')
       }
 
-      if (voiceModel === null || voiceModel === '') {
+      // Yandex uses SpeechKit for voice transcription (no model selection needed)
+      // OpenRouter requires a voice model to be selected
+      if (aiProvider !== 'yandex' && (voiceModel === null || voiceModel === '')) {
         throw new Error('Voice model not configured. Please select a voice model in Settings.')
       }
 
@@ -126,7 +129,7 @@ export function useAI(): UseAIReturn {
       setError(null)
 
       try {
-        const result = await processVoiceRecording(audioBlob, voiceModel)
+        const result = await processVoiceRecording(audioBlob, voiceModel ?? '')
         return result
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to process voice'
@@ -136,7 +139,7 @@ export function useAI(): UseAIReturn {
         setIsProcessing(false)
       }
     },
-    [isAIAvailable, voiceModel]
+    [isAIAvailable, aiProvider, voiceModel]
   )
 
   const suggestTaskProperties = useCallback(

@@ -240,9 +240,10 @@ export class YandexProvider implements AIProvider {
     }
 
     const operationData = (await startResponse.json()) as YandexSTTOperationResponse
+    log.debug('STT operation started:', JSON.stringify(operationData))
     const operationId = operationData.id
 
-    if (operationId === '') {
+    if (!operationId) {
       throw new Error('Yandex STT did not return operation ID')
     }
 
@@ -271,6 +272,7 @@ export class YandexProvider implements AIProvider {
       if (!response.ok) {
         // 404 means still processing, continue polling
         if (response.status === 404) {
+          log.debug('STT poll: still processing (404)')
           continue
         }
         const errorText = await response.text()
@@ -279,6 +281,7 @@ export class YandexProvider implements AIProvider {
 
       // The response is a stream of JSON objects (one per line)
       const text = await response.text()
+      log.debug('STT poll response:', text.substring(0, 500))
       const lines = text
         .trim()
         .split('\n')
@@ -286,7 +289,9 @@ export class YandexProvider implements AIProvider {
 
       for (const line of lines) {
         try {
-          const result = JSON.parse(line) as YandexSTTRecognitionResponse
+          // Response is wrapped in { result: ... }
+          const parsed = JSON.parse(line) as { result: YandexSTTRecognitionResponse }
+          const result = parsed.result
 
           // Prefer normalized text (with literatureText formatting)
           const normalizedText = result.finalRefinement?.normalizedText?.alternatives[0]?.text

@@ -1,4 +1,4 @@
-import { useEffect, useCallback, useRef, type ReactElement } from 'react'
+import { useEffect, useCallback, useRef, useState, type ReactElement } from 'react'
 import { useCaptureStore, type ProcessingState } from '@/stores'
 import { TextCapture } from './TextCapture'
 import { VoiceCapture } from './VoiceCapture'
@@ -13,12 +13,21 @@ interface CaptureModalProps {
 
 export function CaptureModal({ isOpen, onClose, onSave }: CaptureModalProps): ReactElement | null {
   const { processingState, isRecording, extractedItems, reset } = useCaptureStore()
+  const [showVoice, setShowVoice] = useState(false)
+  const [autoStartRecording, setAutoStartRecording] = useState(false)
   const hasSavedRef = useRef(false)
 
   const handleClose = useCallback((): void => {
     reset()
+    setShowVoice(false)
+    setAutoStartRecording(false)
     onClose()
   }, [reset, onClose])
+
+  const handleMicClick = useCallback((autoStart = false): void => {
+    setShowVoice(true)
+    setAutoStartRecording(autoStart)
+  }, [])
 
   const handleSave = useCallback((): void => {
     onSave()
@@ -29,14 +38,21 @@ export function CaptureModal({ isOpen, onClose, onSave }: CaptureModalProps): Re
   useEffect(() => {
     if (processingState === 'done' && extractedItems !== null && !hasSavedRef.current) {
       hasSavedRef.current = true
-      handleSave()
+      // Defer to avoid cascading renders
+      queueMicrotask(() => {
+        handleSave()
+      })
     }
   }, [processingState, extractedItems, handleSave])
 
-  // Reset the saved flag when modal opens
+  // Reset state when modal opens
   useEffect(() => {
     if (isOpen) {
       hasSavedRef.current = false
+      queueMicrotask(() => {
+        setShowVoice(false)
+        setAutoStartRecording(false)
+      })
     }
   }, [isOpen])
 
@@ -80,22 +96,18 @@ export function CaptureModal({ isOpen, onClose, onSave }: CaptureModalProps): Re
       return <ProcessingIndicator state={processingState} />
     }
 
-    // Show capture input (text or voice)
+    // Show voice capture when mic is clicked or recording
+    if (showVoice || isRecording) {
+      return <VoiceCapture autoStart={autoStartRecording} />
+    }
+
+    // Show text capture with inline mic button
     return (
-      <div className="space-y-4">
-        <TextCapture />
-        <div className="relative">
-          <div className="absolute inset-0 flex items-center">
-            <div className="w-full border-t border-gray-200 dark:border-gray-700" />
-          </div>
-          <div className="relative flex justify-center text-sm">
-            <span className="bg-white px-2 text-gray-500 dark:bg-gray-900 dark:text-gray-400">
-              or
-            </span>
-          </div>
-        </div>
-        <VoiceCapture />
-      </div>
+      <TextCapture
+        onMicClick={(autoStart): void => {
+          handleMicClick(autoStart)
+        }}
+      />
     )
   }
 
@@ -135,7 +147,7 @@ export function CaptureModal({ isOpen, onClose, onSave }: CaptureModalProps): Re
         </div>
 
         {/* Content */}
-        <div className="min-h-0 flex-1 overflow-y-auto">{renderContent()}</div>
+        <div className="min-h-0 flex-1 overflow-hidden">{renderContent()}</div>
       </div>
     </div>
   )
