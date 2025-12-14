@@ -1,8 +1,8 @@
-import { type ReactElement, useEffect, useState } from 'react'
-import { useDatabaseContext } from '@/contexts/DatabaseContext'
+import { type ReactElement } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '@/lib/dexie-database'
 import { useUIStore } from '@/stores/ui.store'
 import type { TaskContext, TaskEnergy } from '@/types/task'
-import type { Project } from '@/types/project'
 import { Badge } from '@/components/ui/Badge'
 import { CONTEXT_CONFIG } from '@/lib/context-config'
 
@@ -57,8 +57,10 @@ function FilterChip({
 }
 
 export function TaskFilters({ className = '' }: TaskFiltersProps): ReactElement {
-  const { db } = useDatabaseContext()
-  const [projects, setProjects] = useState<Project[]>([])
+  // Load projects using Dexie liveQuery
+  const projects =
+    useLiveQuery(() => db.projects.where('isActive').equals(1).sortBy('name'), []) ?? []
+
   const {
     filters,
     setContextFilter,
@@ -67,27 +69,6 @@ export function TaskFilters({ className = '' }: TaskFiltersProps): ReactElement 
     setShowCompleted,
     clearFilters,
   } = useUIStore()
-
-  // Load projects for filter options
-  useEffect(() => {
-    if (db === null) return
-
-    const subscription = db.projects
-      .find()
-      .where('isActive')
-      .equals(true)
-      .sort({ name: 'asc' })
-      .$.subscribe({
-        next: (docs) => {
-          const loadedProjects = docs.map((doc) => doc.toJSON() as Project)
-          setProjects(loadedProjects)
-        },
-      })
-
-    return (): void => {
-      subscription.unsubscribe()
-    }
-  }, [db])
 
   // Count active filters
   const activeFilterCount = [

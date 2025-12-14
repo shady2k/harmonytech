@@ -1,7 +1,7 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
-import { useDatabaseContext } from '@/contexts/DatabaseContext'
-import type { Task, AISuggestions, Recurrence } from '@/types/task'
-import type { RxDocument } from 'rxdb'
+import { useCallback, useMemo } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '@/lib/dexie-database'
+import type { Task } from '@/types/task'
 
 export interface ArchiveStats {
   completedToday: number
@@ -20,61 +20,6 @@ interface UseArchiveReturn {
   error: Error | null
   searchArchive: (query: string) => Task[]
   restoreTask: (id: string) => Promise<void>
-}
-
-function documentToTask(doc: RxDocument<Task>): Task {
-  const data = doc.toJSON()
-
-  const aiSuggestions: AISuggestions | undefined = data.aiSuggestions
-    ? {
-        suggestedContext: data.aiSuggestions.suggestedContext,
-        suggestedEnergy: data.aiSuggestions.suggestedEnergy,
-        suggestedTimeEstimate: data.aiSuggestions.suggestedTimeEstimate,
-        suggestedProject: data.aiSuggestions.suggestedProject,
-        confidence: data.aiSuggestions.confidence,
-        alternatives: data.aiSuggestions.alternatives
-          ? {
-              context: data.aiSuggestions.alternatives.context
-                ? [...data.aiSuggestions.alternatives.context]
-                : undefined,
-              energy: data.aiSuggestions.alternatives.energy
-                ? [...data.aiSuggestions.alternatives.energy]
-                : undefined,
-              timeEstimate: data.aiSuggestions.alternatives.timeEstimate
-                ? [...data.aiSuggestions.alternatives.timeEstimate]
-                : undefined,
-            }
-          : undefined,
-      }
-    : undefined
-
-  const recurrence: Recurrence | undefined = data.recurrence
-    ? {
-        pattern: data.recurrence.pattern,
-        interval: data.recurrence.interval,
-        daysOfWeek: data.recurrence.daysOfWeek ? [...data.recurrence.daysOfWeek] : undefined,
-        dayOfMonth: data.recurrence.dayOfMonth,
-        endDate: data.recurrence.endDate,
-      }
-    : undefined
-
-  return {
-    id: data.id,
-    rawInput: data.rawInput,
-    nextAction: data.nextAction,
-    context: data.context,
-    energy: data.energy,
-    timeEstimate: data.timeEstimate,
-    deadline: data.deadline,
-    project: data.project,
-    isSomedayMaybe: data.isSomedayMaybe,
-    isCompleted: data.isCompleted,
-    completedAt: data.completedAt,
-    createdAt: data.createdAt,
-    updatedAt: data.updatedAt,
-    aiSuggestions,
-    recurrence,
-  }
 }
 
 function isToday(date: Date): boolean {
@@ -196,59 +141,30 @@ function calculateAverageCompletionTime(tasks: Task[]): number | null {
   return totalTime / tasksWithTime.length / (1000 * 60 * 60)
 }
 
+const EMPTY_TASKS: Task[] = []
+
 export function useArchive(): UseArchiveReturn {
-  const { db, isLoading: isDbLoading } = useDatabaseContext()
-  const [archivedTasks, setArchivedTasks] = useState<Task[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
-  const isFirstRender = useRef(true)
+  // Reactive query for completed tasks
+  const archivedTasks = useLiveQuery(
+    () => db.tasks.where('isCompleted').equals(1).reverse().sortBy('completedAt'),
+    []
+  )
 
-  // Subscribe to completed tasks
-  useEffect(() => {
-    if (db === null || isDbLoading) {
-      return
-    }
-
-    if (isFirstRender.current) {
-      isFirstRender.current = false
-    }
-
-    const subscription = db.tasks
-      .find({
-        selector: {
-          isCompleted: true,
-        },
-      })
-      .sort({ completedAt: 'desc' })
-      .$.subscribe({
-        next: (docs) => {
-          const tasks = docs.map((doc) => documentToTask(doc))
-          setArchivedTasks(tasks)
-          setIsLoading(false)
-          setError(null)
-        },
-        error: (err: Error) => {
-          setError(err)
-          setIsLoading(false)
-        },
-      })
-
-    return (): void => {
-      subscription.unsubscribe()
-    }
-  }, [db, isDbLoading])
+  const isLoading = archivedTasks === undefined
+  // Use stable reference for empty array to prevent dependency changes
+  const tasks = archivedTasks ?? EMPTY_TASKS
 
   // Calculate stats
   const stats = useMemo((): ArchiveStats => {
-    const completedToday = archivedTasks.filter(
+    const completedToday = tasks.filter(
       (t) => t.completedAt !== undefined && isToday(new Date(t.completedAt))
     ).length
 
-    const completedThisWeek = archivedTasks.filter(
+    const completedThisWeek = tasks.filter(
       (t) => t.completedAt !== undefined && isThisWeek(new Date(t.completedAt))
     ).length
 
-    const completedThisMonth = archivedTasks.filter(
+    const completedThisMonth = tasks.filter(
       (t) => t.completedAt !== undefined && isThisMonth(new Date(t.completedAt))
     ).length
 
@@ -256,55 +172,48 @@ export function useArchive(): UseArchiveReturn {
       completedToday,
       completedThisWeek,
       completedThisMonth,
-      totalCompleted: archivedTasks.length,
-      currentStreak: calculateStreak(archivedTasks),
-      mostProductiveContext: calculateMostProductiveContext(archivedTasks),
-      averageCompletionTime: calculateAverageCompletionTime(archivedTasks),
+      totalCompleted: tasks.length,
+      currentStreak: calculateStreak(tasks),
+      mostProductiveContext: calculateMostProductiveContext(tasks),
+      averageCompletionTime: calculateAverageCompletionTime(tasks),
     }
-  }, [archivedTasks])
+  }, [tasks])
 
   const searchArchive = useCallback(
     (query: string): Task[] => {
       if (query.trim() === '') {
-        return archivedTasks
+        return tasks
       }
 
       const lowerQuery = query.toLowerCase()
-      return archivedTasks.filter((task) => {
+      return tasks.filter((task) => {
         if (task.nextAction.toLowerCase().includes(lowerQuery)) return true
         if (task.rawInput.toLowerCase().includes(lowerQuery)) return true
         if (task.project?.toLowerCase().includes(lowerQuery) === true) return true
         return false
       })
     },
-    [archivedTasks]
+    [tasks]
   )
 
-  const restoreTask = useCallback(
-    async (id: string): Promise<void> => {
-      if (db === null) {
-        throw new Error('Database not initialized')
-      }
+  const restoreTask = useCallback(async (id: string): Promise<void> => {
+    const existing = await db.tasks.get(id)
+    if (!existing) {
+      throw new Error(`Task with id ${id} not found`)
+    }
 
-      const doc = await db.tasks.findOne(id).exec()
-      if (doc === null) {
-        throw new Error(`Task with id ${id} not found`)
-      }
-
-      await doc.patch({
-        isCompleted: false,
-        completedAt: undefined,
-        updatedAt: new Date().toISOString(),
-      })
-    },
-    [db]
-  )
+    await db.tasks.update(id, {
+      isCompleted: false,
+      completedAt: undefined,
+      updatedAt: new Date().toISOString(),
+    })
+  }, [])
 
   return {
-    archivedTasks,
+    archivedTasks: tasks,
     stats,
-    isLoading: isLoading || isDbLoading,
-    error,
+    isLoading,
+    error: null,
     searchArchive,
     restoreTask,
   }

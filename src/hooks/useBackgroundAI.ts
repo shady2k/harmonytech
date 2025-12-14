@@ -3,23 +3,21 @@
  * Watches for unprocessed thoughts and extracts tasks automatically
  * Handles graceful degradation when AI is unavailable
  * Supports confidence thresholds, retry logic, and offline detection
- * Uses the unified useAI hook for all AI operations
+ * Uses the global AI queue to ensure only one AI request runs at a time
  */
 
 import { useEffect, useRef, useCallback, useState } from 'react'
-import { useDatabaseContext } from '@/contexts/DatabaseContext'
+import { db } from '@/lib/dexie-database'
 import { useSettingsStore } from '@/stores/settings.store'
 import { useAI } from './useAI'
 import { logger } from '@/lib/logger'
+import { aiQueue } from '@/lib/ai-queue'
 import { RETRY_DELAYS, MAX_RETRIES } from '@/lib/constants/ai'
 import type { Thought, ProcessingStatus } from '@/types/thought'
-import type { ThoughtDocument } from '@/lib/database'
 
 const log = logger.backgroundAI
 
 const PROCESS_INTERVAL_MS = 5000 // Check every 5 seconds
-const BATCH_SIZE = 3 // Process up to 3 thoughts at a time
-const THROTTLE_DELAY_MS = 1000 // Delay between processing individual thoughts to avoid API spam
 
 interface BackgroundAIState {
   pendingCount: number
@@ -31,8 +29,11 @@ interface BackgroundAIState {
 // Track retry counts per thought (persists across renders)
 const retryCountMap = new Map<string, number>()
 
+// Track last config error time to avoid spamming on config issues
+let lastConfigErrorTime = 0
+const CONFIG_ERROR_COOLDOWN_MS = 30000 // Wait 30s before retrying after config error
+
 export function useBackgroundAI(): BackgroundAIState {
-  const { db } = useDatabaseContext()
   const { aiEnabled, aiConfidenceThreshold } = useSettingsStore()
   const { extractTasks, suggestTaskProperties, isAIAvailable } = useAI()
   const isProcessingRef = useRef(false)
@@ -63,15 +64,10 @@ export function useBackgroundAI(): BackgroundAIState {
     }
   }, [])
 
-  // Helper to add delay between API calls
-  const delay = useCallback((ms: number): Promise<void> => {
-    return new Promise((resolve) => setTimeout(resolve, ms))
-  }, [])
-
   // Helper to update thought processingStatus
   const updateProcessingStatus = useCallback(
-    async (thoughtDoc: ThoughtDocument, status: ProcessingStatus): Promise<void> => {
-      await thoughtDoc.patch({
+    async (thoughtId: string, status: ProcessingStatus): Promise<void> => {
+      await db.thoughts.update(thoughtId, {
         processingStatus: status,
         updatedAt: new Date().toISOString(),
       })
@@ -97,10 +93,8 @@ export function useBackgroundAI(): BackgroundAIState {
   )
 
   useEffect(() => {
-    if (!db) return
-
     const processUnprocessedThoughts = async (): Promise<void> => {
-      // Prevent concurrent processing
+      // Prevent concurrent processing runs
       if (isProcessingRef.current) return
 
       // Check if AI is enabled
@@ -119,19 +113,15 @@ export function useBackgroundAI(): BackgroundAIState {
       setState((prev) => ({ ...prev, isProcessing: true }))
 
       try {
-        // Find thoughts that need processing (unprocessed or failed with retries left)
+        // Find ONE thought that needs processing (queue handles serialization)
         const unprocessedThoughts = await db.thoughts
-          .find({
-            selector: {
-              processingStatus: { $in: ['unprocessed', 'failed'] },
-            },
-            limit: BATCH_SIZE,
-          })
-          .exec()
+          .where('processingStatus')
+          .anyOf(['unprocessed', 'failed'])
+          .limit(1)
+          .toArray()
 
         // Filter out failed thoughts that have exceeded max retries
-        const thoughtsToProcess = unprocessedThoughts.filter((doc) => {
-          const thought = doc.toJSON() as Thought
+        const thoughtsToProcess = unprocessedThoughts.filter((thought) => {
           if (thought.processingStatus === 'failed') {
             const retryCount = retryCountMap.get(thought.id) ?? 0
             return retryCount < MAX_RETRIES
@@ -139,7 +129,13 @@ export function useBackgroundAI(): BackgroundAIState {
           return true
         })
 
-        setState((prev) => ({ ...prev, pendingCount: thoughtsToProcess.length }))
+        // Count total pending for UI
+        const totalPending = await db.thoughts
+          .where('processingStatus')
+          .anyOf(['unprocessed', 'failed'])
+          .count()
+
+        setState((prev) => ({ ...prev, pendingCount: totalPending }))
 
         // No work to do
         if (thoughtsToProcess.length === 0) {
@@ -148,25 +144,24 @@ export function useBackgroundAI(): BackgroundAIState {
 
         // Only check AI availability when there's work to do
         if (!isAIAvailable) {
-          log.debug('AI not available, skipping', thoughtsToProcess.length, 'thoughts')
+          log.debug('AI not available, skipping processing')
           return
         }
 
-        // Process each thought with throttling to avoid API spam
-        for (let i = 0; i < thoughtsToProcess.length; i++) {
-          const thoughtDoc = thoughtsToProcess[i]
-          await processThought(thoughtDoc)
-          setState((prev) => ({
-            ...prev,
-            pendingCount: Math.max(0, prev.pendingCount - 1),
-            lastProcessedAt: new Date(),
-          }))
-
-          // Add delay between processing to avoid API rate limiting
-          if (i < thoughtsToProcess.length - 1) {
-            await delay(THROTTLE_DELAY_MS)
-          }
+        // Check config error cooldown
+        if (Date.now() - lastConfigErrorTime < CONFIG_ERROR_COOLDOWN_MS) {
+          log.debug('Config error cooldown active, skipping processing')
+          return
         }
+
+        // Process the thought (one at a time)
+        const thought = thoughtsToProcess[0]
+        await processThought(thought)
+        setState((prev) => ({
+          ...prev,
+          pendingCount: Math.max(0, totalPending - 1),
+          lastProcessedAt: new Date(),
+        }))
       } catch {
         // Silently handle background processing errors
       } finally {
@@ -175,22 +170,24 @@ export function useBackgroundAI(): BackgroundAIState {
       }
     }
 
-    const processThought = async (thoughtDoc: ThoughtDocument): Promise<void> => {
-      const thought = thoughtDoc.toJSON() as Thought
+    const processThought = async (thought: Thought): Promise<void> => {
       const now = new Date().toISOString()
 
       // Set status to processing
-      await updateProcessingStatus(thoughtDoc, 'processing')
+      await updateProcessingStatus(thought.id, 'processing')
 
       try {
-        // Extract tasks from thought content using unified AI layer
+        // Extract tasks via the global AI queue (ensures one request at a time)
         log.debug('Processing thought:', thought.content)
-        const result = await extractTasks(thought.content)
+        const result = await aiQueue.enqueue(
+          () => extractTasks(thought.content),
+          1 // Normal priority for background tasks
+        )
         log.debug('Extraction result:', result)
 
         if (result.tasks.length === 0) {
           // No tasks found, mark as processed
-          await thoughtDoc.patch({
+          await db.thoughts.update(thought.id, {
             aiProcessed: true,
             processingStatus: 'processed',
             updatedAt: now,
@@ -208,7 +205,7 @@ export function useBackgroundAI(): BackgroundAIState {
           const taskId = `task-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`
           taskIds.push(taskId)
 
-          // Get AI suggestions for task properties
+          // Get AI suggestions for task properties (via queue)
           let context: 'computer' | 'phone' | 'errands' | 'home' | 'anywhere' = 'anywhere'
           let energy: 'high' | 'medium' | 'low' = 'medium'
           let timeEstimate = 15
@@ -216,8 +213,11 @@ export function useBackgroundAI(): BackgroundAIState {
           let taskConfidence = 1.0
 
           try {
-            // Get AI suggestions using unified AI layer
-            const suggestions = await suggestTaskProperties(extractedTask.nextAction, [])
+            // Get AI suggestions using unified AI layer (via queue)
+            const suggestions = await aiQueue.enqueue(
+              () => suggestTaskProperties(extractedTask.nextAction, []),
+              1 // Normal priority
+            )
             log.debug('Property suggestions:', suggestions)
             context = suggestions.context.value
             energy = suggestions.energy.value
@@ -247,7 +247,7 @@ export function useBackgroundAI(): BackgroundAIState {
           })
 
           try {
-            await db.tasks.insert({
+            await db.tasks.add({
               id: taskId,
               rawInput: extractedTask.rawInput,
               nextAction: extractedTask.nextAction,
@@ -280,9 +280,10 @@ export function useBackgroundAI(): BackgroundAIState {
           }
         }
 
-        // Determine final processing status based on overall confidence
-        const finalStatus: ProcessingStatus =
-          overallConfidence >= aiConfidenceThreshold ? 'processed' : 'unprocessed'
+        // Always mark as processed if tasks were created
+        // The confidence threshold only affects classificationStatus on tasks (for user review)
+        // We should NOT retry processing - that would create duplicate tasks
+        const finalStatus: ProcessingStatus = 'processed'
 
         log.debug(
           'Overall confidence:',
@@ -290,14 +291,16 @@ export function useBackgroundAI(): BackgroundAIState {
           'threshold:',
           aiConfidenceThreshold,
           'status:',
-          finalStatus
+          finalStatus,
+          'tasks created:',
+          taskIds.length
         )
 
-        // Update thought with linked tasks - get fresh doc to avoid revision conflict
-        const freshThoughtDoc = await db.thoughts.findOne(thought.id).exec()
-        if (freshThoughtDoc) {
-          await freshThoughtDoc.patch({
-            linkedTaskIds: [...freshThoughtDoc.linkedTaskIds, ...taskIds],
+        // Update thought with linked tasks
+        const freshThought = await db.thoughts.get(thought.id)
+        if (freshThought) {
+          await db.thoughts.update(thought.id, {
+            linkedTaskIds: [...freshThought.linkedTaskIds, ...taskIds],
             aiProcessed: true,
             processingStatus: finalStatus,
             updatedAt: now,
@@ -307,19 +310,37 @@ export function useBackgroundAI(): BackgroundAIState {
         // Clear retry count on success
         retryCountMap.delete(thought.id)
       } catch (err) {
-        // Handle error with retry logic
-        log.error('Error processing thought:', err)
+        // Handle error with appropriate strategy
+        const errorMessage = err instanceof Error ? err.message : String(err)
+        log.error('Error processing thought:', errorMessage)
 
+        // Configuration errors should not retry - they won't fix themselves
+        const isConfigError =
+          errorMessage.includes('not configured') ||
+          errorMessage.includes('API key') ||
+          errorMessage.includes('not available')
+
+        if (isConfigError) {
+          // Mark as unprocessed so it can be retried when config is fixed
+          // Set cooldown to avoid spamming
+          lastConfigErrorTime = Date.now()
+          log.warn('Config error, will retry in 30s when AI is properly configured')
+          await updateProcessingStatus(thought.id, 'unprocessed')
+          return
+        }
+
+        // For transient errors (network, API rate limits, etc.), use retry logic
         const currentRetryCount = retryCountMap.get(thought.id) ?? 0
         const newRetryCount = currentRetryCount + 1
 
         if (newRetryCount >= MAX_RETRIES) {
           // Max retries reached, mark as failed permanently
+          // Keep the retry count so this thought is filtered out on future queries
           log.warn('Max retries reached for thought:', thought.id)
-          await updateProcessingStatus(thoughtDoc, 'failed')
-          retryCountMap.delete(thought.id)
+          retryCountMap.set(thought.id, newRetryCount)
+          await updateProcessingStatus(thought.id, 'failed')
         } else {
-          // Schedule retry with exponential backoff
+          // Schedule retry - just mark as failed, next interval will pick it up
           retryCountMap.set(thought.id, newRetryCount)
           const retryDelay = RETRY_DELAYS[Math.min(newRetryCount - 1, RETRY_DELAYS.length - 1)]
           log.info(
@@ -327,10 +348,7 @@ export function useBackgroundAI(): BackgroundAIState {
           )
 
           // Mark as failed temporarily, will be picked up on next interval
-          await updateProcessingStatus(thoughtDoc, 'failed')
-
-          // Wait before allowing next retry
-          await delay(retryDelay)
+          await updateProcessingStatus(thought.id, 'failed')
         }
       }
     }
@@ -347,13 +365,11 @@ export function useBackgroundAI(): BackgroundAIState {
       clearInterval(intervalId)
     }
   }, [
-    db,
     aiEnabled,
     aiConfidenceThreshold,
     isAIAvailable,
     extractTasks,
     suggestTaskProperties,
-    delay,
     updateProcessingStatus,
     calculateOverallConfidence,
   ])

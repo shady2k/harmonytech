@@ -1,5 +1,5 @@
 import { useState, type ReactElement } from 'react'
-import { useDatabaseContext } from '@/contexts/DatabaseContext'
+import { db } from '@/lib/dexie-database'
 import { trackEvent, AnalyticsEvents } from '@/lib/analytics'
 import type { Thought } from '@/types/thought'
 
@@ -8,41 +8,33 @@ interface QuickProcessCardProps {
 }
 
 export function QuickProcessCard({ thought }: QuickProcessCardProps): ReactElement {
-  const { db } = useDatabaseContext()
   const [isProcessing, setIsProcessing] = useState(false)
 
   const isFailedState = thought.processingStatus === 'failed'
   const isProcessingState = thought.processingStatus === 'processing'
 
   const handleApprove = async (): Promise<void> => {
-    if (db === null) return
     setIsProcessing(true)
 
     try {
-      const doc = await db.thoughts.findOne(thought.id).exec()
-      if (doc) {
-        await doc.patch({
-          processingStatus: 'processed',
+      await db.thoughts.update(thought.id, {
+        processingStatus: 'processed',
+        updatedAt: new Date().toISOString(),
+      })
+
+      // Also update any linked tasks to 'classified'
+      for (const taskId of thought.linkedTaskIds) {
+        await db.tasks.update(taskId, {
+          classificationStatus: 'classified',
           updatedAt: new Date().toISOString(),
         })
-
-        // Also update any linked tasks to 'classified'
-        for (const taskId of thought.linkedTaskIds) {
-          const taskDoc = await db.tasks.findOne(taskId).exec()
-          if (taskDoc) {
-            await taskDoc.patch({
-              classificationStatus: 'classified',
-              updatedAt: new Date().toISOString(),
-            })
-          }
-        }
-
-        trackEvent(AnalyticsEvents.AI_EXTRACTION_APPROVED, {
-          thoughtId: thought.id,
-          linkedTaskCount: thought.linkedTaskIds.length,
-          modified: false,
-        })
       }
+
+      trackEvent(AnalyticsEvents.AI_EXTRACTION_APPROVED, {
+        thoughtId: thought.id,
+        linkedTaskCount: thought.linkedTaskIds.length,
+        modified: false,
+      })
     } catch {
       // Handle error silently
     } finally {
@@ -51,22 +43,18 @@ export function QuickProcessCard({ thought }: QuickProcessCardProps): ReactEleme
   }
 
   const handleDismiss = async (): Promise<void> => {
-    if (db === null) return
     setIsProcessing(true)
 
     try {
-      const doc = await db.thoughts.findOne(thought.id).exec()
-      if (doc) {
-        await doc.patch({
-          processingStatus: 'processed',
-          updatedAt: new Date().toISOString(),
-        })
+      await db.thoughts.update(thought.id, {
+        processingStatus: 'processed',
+        updatedAt: new Date().toISOString(),
+      })
 
-        trackEvent(AnalyticsEvents.AI_EXTRACTION_REJECTED, {
-          thoughtId: thought.id,
-          linkedTaskCount: thought.linkedTaskIds.length,
-        })
-      }
+      trackEvent(AnalyticsEvents.AI_EXTRACTION_REJECTED, {
+        thoughtId: thought.id,
+        linkedTaskCount: thought.linkedTaskIds.length,
+      })
     } catch {
       // Handle error silently
     } finally {
@@ -75,17 +63,13 @@ export function QuickProcessCard({ thought }: QuickProcessCardProps): ReactEleme
   }
 
   const handleRetry = async (): Promise<void> => {
-    if (db === null) return
     setIsProcessing(true)
 
     try {
-      const doc = await db.thoughts.findOne(thought.id).exec()
-      if (doc) {
-        await doc.patch({
-          processingStatus: 'unprocessed',
-          updatedAt: new Date().toISOString(),
-        })
-      }
+      await db.thoughts.update(thought.id, {
+        processingStatus: 'unprocessed',
+        updatedAt: new Date().toISOString(),
+      })
     } catch {
       // Handle error silently
     } finally {

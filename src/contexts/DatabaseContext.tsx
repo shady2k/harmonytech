@@ -1,21 +1,16 @@
 import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
-import {
-  getDatabase,
-  initializeSettings,
-  resetDatabaseCache,
-  type HarmonyTechDatabase,
-} from '@/lib/database'
-import { MigrationProvider } from '@/contexts/MigrationContext'
-import { getMigrationOrchestrator } from '@/lib/migration'
-import { isDowngrade } from '@/lib/migration/version-manager'
+import { db, type HarmonyDatabase } from '@/lib/dexie-database'
+import { settingsSchema } from '@/types/settings'
 import { logger } from '@/lib/logger'
+
+const log = logger.db
 
 // ============================================================================
 // Context Types
 // ============================================================================
 
 interface DatabaseContextValue {
-  db: HarmonyTechDatabase | null
+  db: HarmonyDatabase
   isLoading: boolean
   error: Error | null
 }
@@ -31,116 +26,52 @@ interface DatabaseProviderProps {
 // ============================================================================
 
 export function DatabaseProvider({ children }: DatabaseProviderProps): React.JSX.Element {
-  const [db, setDb] = useState<HarmonyTechDatabase | null>(null)
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
-  const [needsMigration, setNeedsMigration] = useState<boolean | null>(null)
-  const [migrationComplete, setMigrationComplete] = useState(false)
 
-  // Step 1: Check if migration is needed BEFORE any database access
+  // Initialize database on startup
   useEffect(() => {
-    const checkMigration = async (): Promise<void> => {
-      logger.db.info('=== DatabaseContext: Starting migration check ===')
-      try {
-        // MANDATORY: Check for downgrade FIRST
-        if (isDowngrade()) {
-          throw new Error(
-            'Database was created with a newer app version. Please update the app or clear browser data to continue.'
-          )
-        }
-        const orchestrator = getMigrationOrchestrator()
-        logger.db.info('DatabaseContext: Calling checkMigrationNeeded()')
-        const needed = await orchestrator.checkMigrationNeeded()
-        logger.db.info('DatabaseContext: Migration needed =', needed)
-        setNeedsMigration(needed)
-      } catch (err) {
-        logger.db.error('DatabaseContext: Migration check error:', err)
-        setError(err instanceof Error ? err : new Error('Migration check failed'))
-        setNeedsMigration(false)
-      }
-    }
-    void checkMigration()
-  }, [])
-
-  // Step 2: Initialize database only after migration check/completion
-  useEffect(() => {
-    // Wait for migration check
-    if (needsMigration === null) return
-
-    // If migration is needed and not complete, don't init yet
-    if (needsMigration && !migrationComplete) return
-
-    const initDb = async (): Promise<void> => {
+    const initDatabase = async (): Promise<void> => {
       try {
         setIsLoading(true)
         setError(null)
 
-        // Reset cache in case migration changed the DB name
-        if (migrationComplete) {
-          resetDatabaseCache()
+        // 1. Clean up stuck 'processing' thoughts from previous session
+        // These can happen if the app crashed or was closed mid-processing
+        const stuckThoughts = await db.thoughts
+          .where('processingStatus')
+          .equals('processing')
+          .toArray()
+
+        if (stuckThoughts.length > 0) {
+          log.info(`Resetting ${String(stuckThoughts.length)} stuck 'processing' thoughts`)
+          await db.thoughts
+            .where('processingStatus')
+            .equals('processing')
+            .modify({ processingStatus: 'unprocessed', updatedAt: new Date().toISOString() })
         }
 
-        const database = await getDatabase()
-        await initializeSettings(database)
-        setDb(database)
+        // 2. Check if settings exist, create default if not
+        const existingSettings = await db.settings.get('user-settings')
+        if (!existingSettings) {
+          const defaultSettings = settingsSchema.parse({
+            id: 'user-settings',
+            aiProvider: 'openrouter',
+            theme: 'system',
+            defaultContext: 'computer',
+            defaultEnergy: 'medium',
+          })
+          await db.settings.add(defaultSettings)
+        }
       } catch (err) {
-        const errorMessage = err instanceof Error ? err.message : String(err)
-
-        // Safety net: catch DB6/DM4/schema mismatch errors and trigger orchestrator
-        // This handles cases where localStorage version is stale but actual DB needs migration
-        const isSchemaError =
-          errorMessage.includes('DB6') ||
-          errorMessage.includes('DM4') ||
-          errorMessage.includes('schema') ||
-          errorMessage.includes('closed harmonytech')
-
-        if (isSchemaError) {
-          // Schema error detected - force orchestrator to run migration
-          resetDatabaseCache()
-          const orchestrator = getMigrationOrchestrator()
-          orchestrator.setForceMigration(true)
-          setNeedsMigration(true)
-          setMigrationComplete(false)
-          return
-        }
-
-        // Note: We do NOT clear databases on errors - data integrity is paramount
-        // Schema mismatches should be handled by proper migrations, not data deletion
         setError(err instanceof Error ? err : new Error('Failed to initialize database'))
       } finally {
         setIsLoading(false)
       }
     }
 
-    void initDb()
-  }, [needsMigration, migrationComplete])
-
-  // Handle migration completion
-  const handleMigrationComplete = (): void => {
-    setMigrationComplete(true)
-  }
-
-  // Still checking migration status
-  if (needsMigration === null) {
-    return (
-      <div className="flex min-h-screen items-center justify-center bg-stone-50 dark:bg-stone-900">
-        <div className="flex items-center gap-2 text-stone-500">
-          <LoadingSpinner />
-          <span>Checking database...</span>
-        </div>
-      </div>
-    )
-  }
-
-  // Migration needed - show migration UI
-  if (needsMigration && !migrationComplete) {
-    return (
-      <MigrationProvider onMigrationComplete={handleMigrationComplete}>
-        {/* Migration UI is handled inside MigrationProvider */}
-        <div />
-      </MigrationProvider>
-    )
-  }
+    void initDatabase()
+  }, [])
 
   // Database error
   if (error !== null) {

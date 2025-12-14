@@ -1,8 +1,5 @@
-export interface Project {
-  id: string
-  name: string
-  description?: string
-  isActive: boolean
-  createdAt: string
-  updatedAt: string
-}
+/**
+ * Project Types - Re-exports from Zod schema (single source of truth)
+ */
+export type { Project } from './schemas'
+export { projectSchema } from './schemas'

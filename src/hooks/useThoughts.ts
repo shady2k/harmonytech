@@ -1,7 +1,8 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useDatabaseContext } from '@/contexts/DatabaseContext'
+import { useCallback } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '@/lib/dexie-database'
 import type { Thought } from '@/types/thought'
-import type { RxDocument } from 'rxdb'
+import { thoughtSchema } from '@/types/thought'
 
 interface UseThoughtsReturn {
   thoughts: Thought[]
@@ -18,78 +19,18 @@ function generateId(): string {
   return `thought-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`
 }
 
-function documentToThought(doc: RxDocument<Thought>): Thought {
-  const data = doc.toJSON()
-
-  // Safely extract tags with proper typing
-  const tags: string[] = Array.isArray(data.tags)
-    ? data.tags.filter((tag): tag is string => typeof tag === 'string')
-    : []
-
-  // Safely extract linkedTaskIds with proper typing
-  const linkedTaskIds: string[] = Array.isArray(data.linkedTaskIds)
-    ? data.linkedTaskIds.filter((id): id is string => typeof id === 'string')
-    : []
-
-  return {
-    id: data.id,
-    content: data.content,
-    tags,
-    linkedProject: data.linkedProject,
-    createdAt: data.createdAt,
-    updatedAt: data.updatedAt,
-    sourceRecordingId: data.sourceRecordingId,
-    linkedTaskIds,
-    aiProcessed: data.aiProcessed,
-    processingStatus: data.processingStatus,
-  }
-}
+const EMPTY_THOUGHTS: Thought[] = []
 
 export function useThoughts(): UseThoughtsReturn {
-  const { db, isLoading: isDbLoading } = useDatabaseContext()
-  const [thoughts, setThoughts] = useState<Thought[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
-  const isFirstRender = useRef(true)
+  // Reactive query using Dexie liveQuery
+  const allThoughts = useLiveQuery(() => db.thoughts.orderBy('createdAt').reverse().toArray(), [])
 
-  // Subscribe to thoughts collection
-  useEffect(() => {
-    if (db === null || isDbLoading) {
-      return
-    }
-
-    // Only set loading on first render to avoid cascading renders
-    if (isFirstRender.current) {
-      isFirstRender.current = false
-    }
-
-    const subscription = db.thoughts
-      .find()
-      .sort({ createdAt: 'desc' })
-      .$.subscribe({
-        next: (docs) => {
-          const allThoughts = docs.map((doc) => documentToThought(doc))
-          setThoughts(allThoughts)
-          setIsLoading(false)
-          setError(null)
-        },
-        error: (err: Error) => {
-          setError(err)
-          setIsLoading(false)
-        },
-      })
-
-    return (): void => {
-      subscription.unsubscribe()
-    }
-  }, [db, isDbLoading])
+  const isLoading = allThoughts === undefined
+  // Use stable reference for empty array to prevent dependency changes
+  const thoughts = allThoughts ?? EMPTY_THOUGHTS
 
   const addThought = useCallback(
     async (thoughtData: Omit<Thought, 'id' | 'createdAt' | 'updatedAt'>): Promise<Thought> => {
-      if (db === null) {
-        throw new Error('Database not initialized')
-      }
-
       const now = new Date().toISOString()
       const newThought: Thought = {
         ...thoughtData,
@@ -100,46 +41,37 @@ export function useThoughts(): UseThoughtsReturn {
         updatedAt: now,
       }
 
-      await db.thoughts.insert(newThought)
-      return newThought
+      // Validate with Zod before inserting
+      const validated = thoughtSchema.parse(newThought)
+      await db.thoughts.add(validated)
+      return validated
     },
-    [db]
+    []
   )
 
   const updateThought = useCallback(
     async (id: string, updates: Partial<Thought>): Promise<void> => {
-      if (db === null) {
-        throw new Error('Database not initialized')
-      }
-
-      const doc = await db.thoughts.findOne(id).exec()
-      if (doc === null) {
+      const existing = await db.thoughts.get(id)
+      if (!existing) {
         throw new Error(`Thought with id ${id} not found`)
       }
 
-      await doc.patch({
+      await db.thoughts.update(id, {
         ...updates,
         updatedAt: new Date().toISOString(),
       })
     },
-    [db]
+    []
   )
 
-  const deleteThought = useCallback(
-    async (id: string): Promise<void> => {
-      if (db === null) {
-        throw new Error('Database not initialized')
-      }
+  const deleteThought = useCallback(async (id: string): Promise<void> => {
+    const existing = await db.thoughts.get(id)
+    if (!existing) {
+      throw new Error(`Thought with id ${id} not found`)
+    }
 
-      const doc = await db.thoughts.findOne(id).exec()
-      if (doc === null) {
-        throw new Error(`Thought with id ${id} not found`)
-      }
-
-      await doc.remove()
-    },
-    [db]
-  )
+    await db.thoughts.delete(id)
+  }, [])
 
   const searchThoughts = useCallback(
     (query: string): Thought[] => {
@@ -179,8 +111,8 @@ export function useThoughts(): UseThoughtsReturn {
 
   return {
     thoughts,
-    isLoading: isLoading || isDbLoading,
-    error,
+    isLoading,
+    error: null,
     addThought,
     updateThought,
     deleteThought,

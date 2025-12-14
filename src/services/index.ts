@@ -3,7 +3,7 @@ export type { ChatMessage, ChatResponse, ContentPart, OpenRouterError } from './
 
 export { extractFromText } from './task-extractor'
 export type { ExtractionResult } from './task-extractor'
-export type { ExtractedTask, ExtractedThought } from '@/lib/schemas/task.master'
+export type { ExtractedTask, ExtractedThought } from '@/types/schemas/task.schema'
 
 export { processVoiceRecording } from './voice-processor'
 export type { VoiceProcessingResult } from './voice-processor'

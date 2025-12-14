@@ -36,7 +36,6 @@ function AppContent(): ReactElement {
 
   // Load and subscribe to settings from database
   useEffect(() => {
-    if (db === null) return
     const unsubscribe = subscribeToDatabase(db)
     return unsubscribe
   }, [db, subscribeToDatabase])
@@ -112,7 +111,7 @@ function AppContent(): ReactElement {
   ])
 
   const handleSave = useCallback(async (): Promise<void> => {
-    if (db === null || extractedItems === null) {
+    if (extractedItems === null) {
       return
     }
 
@@ -120,7 +119,7 @@ function AppContent(): ReactElement {
 
     // Save tasks
     for (const task of extractedItems.tasks) {
-      await db.tasks.insert({
+      await db.tasks.add({
         id: `task-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`,
         rawInput: task.rawInput,
         nextAction: task.nextAction,
@@ -141,7 +140,7 @@ function AppContent(): ReactElement {
 
     // Save thoughts with aiProcessed=false so background AI can process them
     for (const thought of extractedItems.thoughts) {
-      await db.thoughts.insert({
+      await db.thoughts.add({
         id: `thought-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`,
         content: thought.content,
         tags: thought.tags,

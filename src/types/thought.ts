@@ -1,14 +1,5 @@
-export type ProcessingStatus = 'unprocessed' | 'processing' | 'processed' | 'failed'
-
-export interface Thought {
-  id: string
-  content: string
-  tags: string[]
-  linkedProject?: string
-  createdAt: string
-  updatedAt: string
-  sourceRecordingId?: string
-  linkedTaskIds: string[]
-  aiProcessed: boolean
-  processingStatus: ProcessingStatus
-}
+/**
+ * Thought Types - Re-exports from Zod schema (single source of truth)
+ */
+export type { Thought, ProcessingStatus } from './schemas'
+export { thoughtSchema, processingStatusSchema } from './schemas'

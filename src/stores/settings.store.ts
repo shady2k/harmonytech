@@ -1,8 +1,8 @@
 import { create } from 'zustand'
+import { liveQuery } from 'dexie'
 import type { TaskContext, TaskEnergy } from '@/types/task'
 import type { AIProviderType, Settings, Theme } from '@/types/settings'
-import type { HarmonyTechDatabase } from '@/lib/database'
-import type { RxDocument } from 'rxdb'
+import type { HarmonyDatabase } from '@/lib/dexie-database'
 import { AI_CONFIDENCE_THRESHOLD } from '@/lib/constants/ai'
 
 // Use proxy in development to avoid CORS issues
@@ -58,9 +58,9 @@ interface SettingsActions {
   setDefaultEnergy: (energy: TaskEnergy) => void
 
   // Database sync
-  loadFromDatabase: (db: HarmonyTechDatabase) => Promise<void>
-  syncToDatabase: (db: HarmonyTechDatabase) => Promise<void>
-  subscribeToDatabase: (db: HarmonyTechDatabase) => () => void
+  loadFromDatabase: (db: HarmonyDatabase) => Promise<void>
+  syncToDatabase: (db: HarmonyDatabase) => Promise<void>
+  subscribeToDatabase: (db: HarmonyDatabase) => () => void
 
   // Reset
   reset: () => void
@@ -209,8 +209,8 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   // Database sync
   loadFromDatabase: async (db): Promise<void> => {
     try {
-      const settingsDoc = await db.settings.findOne('user-settings').exec()
-      if (settingsDoc !== null) {
+      const settingsDoc = await db.settings.get('user-settings')
+      if (settingsDoc !== undefined) {
         set({
           aiProvider: settingsDoc.aiProvider,
           apiKey: settingsDoc.openRouterApiKey ?? null,
@@ -249,22 +249,19 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
     set({ isSyncing: true })
 
     try {
-      const settingsDoc = await db.settings.findOne('user-settings').exec()
-      if (settingsDoc) {
-        await settingsDoc.patch({
-          aiProvider,
-          openRouterApiKey: apiKey ?? undefined,
-          yandexApiKey: yandexApiKey ?? undefined,
-          yandexFolderId: yandexFolderId ?? undefined,
-          textModel: textModel ?? undefined,
-          voiceModel: voiceModel ?? undefined,
-          aiEnabled,
-          aiConfidenceThreshold,
-          theme,
-          defaultContext,
-          defaultEnergy,
-        })
-      }
+      await db.settings.update('user-settings', {
+        aiProvider,
+        openRouterApiKey: apiKey ?? undefined,
+        yandexApiKey: yandexApiKey ?? undefined,
+        yandexFolderId: yandexFolderId ?? undefined,
+        textModel: textModel ?? undefined,
+        voiceModel: voiceModel ?? undefined,
+        aiEnabled,
+        aiConfidenceThreshold,
+        theme,
+        defaultContext,
+        defaultEnergy,
+      })
     } catch {
       throw new Error('Failed to sync settings to database')
     } finally {
@@ -273,9 +270,11 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
   },
 
   subscribeToDatabase: (db): (() => void) => {
-    const subscription = db.settings.findOne('user-settings').$.subscribe({
-      next: (settingsDoc: RxDocument<Settings> | null): void => {
-        if (settingsDoc !== null) {
+    // Use Dexie's liveQuery for reactive updates
+    const observable = liveQuery(() => db.settings.get('user-settings'))
+    const subscription = observable.subscribe({
+      next: (settingsDoc: Settings | undefined): void => {
+        if (settingsDoc !== undefined) {
           set({
             aiProvider: settingsDoc.aiProvider,
             apiKey: settingsDoc.openRouterApiKey ?? null,

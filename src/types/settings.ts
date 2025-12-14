@@ -1,20 +1,8 @@
-import type { TaskContext, TaskEnergy } from './task'
+/**
+ * Settings Types - Re-exports from Zod schema (single source of truth)
+ */
+export type { Settings, Theme, AIProviderType } from './schemas'
+export { settingsSchema, themeSchema, aiProviderSchema } from './schemas'
 
-export type Theme = 'light' | 'dark' | 'system'
-
-export type AIProviderType = 'openrouter' | 'yandex'
-
-export interface Settings {
-  id: string // Always "user-settings"
-  aiProvider: AIProviderType
-  openRouterApiKey?: string
-  yandexApiKey?: string
-  yandexFolderId?: string
-  textModel?: string
-  voiceModel?: string
-  aiEnabled?: boolean
-  aiConfidenceThreshold?: number
-  theme: Theme
-  defaultContext: TaskContext
-  defaultEnergy: TaskEnergy
-}
+// Re-export task enums for backward compatibility
+export type { TaskContext, TaskEnergy } from './schemas'

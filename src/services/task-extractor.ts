@@ -15,7 +15,7 @@ import {
   extractedThoughtSchema,
   type ExtractedTask,
   type ExtractedThought,
-} from '@/lib/schemas/task.master'
+} from '@/types/schemas/task.schema'
 
 export interface ExtractionResult {
   tasks: ExtractedTask[]
@@ -93,10 +93,10 @@ function parseLenient(data: unknown): { tasks: ExtractedTask[]; thoughts: Extrac
       isActionable: task['isActionable'] !== false,
     }
 
-    const scheduledStart = normalizeOptionalString(task['scheduledStart'])
+    const scheduledStart = normalizeDateString(task['scheduledStart'])
     if (scheduledStart !== undefined) extracted.scheduledStart = scheduledStart
 
-    const scheduledEnd = normalizeOptionalString(task['scheduledEnd'])
+    const scheduledEnd = normalizeDateString(task['scheduledEnd'])
     if (scheduledEnd !== undefined) extracted.scheduledEnd = scheduledEnd
 
     const recurrence = normalizeRecurrence(task['recurrence'])
@@ -132,12 +132,39 @@ function normalizeOptionalString(value: unknown): string | undefined {
 }
 
 /**
+ * Normalize and validate ISO date string
+ * Returns undefined if the string is not a valid parseable date
+ * Handles AI responses that may contain placeholders like "XX" for unknown values
+ */
+function normalizeDateString(value: unknown): string | undefined {
+  const str = normalizeOptionalString(value)
+  if (str === undefined) return undefined
+
+  // Check for placeholder patterns that AI might use (e.g., "2025-XX-20")
+  if (/[^0-9T:\-.Z+]/.test(str.replace(/\d{4}-\d{2}-\d{2}/, ''))) {
+    // Contains non-date characters, likely a placeholder
+    return undefined
+  }
+
+  // Try to parse the date
+  const date = new Date(str)
+  if (Number.isNaN(date.getTime())) {
+    return undefined
+  }
+
+  return str
+}
+
+/**
  * Normalize string array
  */
 function normalizeStringArray(value: unknown): string[] {
   if (!Array.isArray(value)) return []
   return value.filter((item): item is string => typeof item === 'string')
 }
+
+const VALID_CONSTRAINTS = ['next-weekend', 'next-weekday', 'next-saturday', 'next-sunday'] as const
+type RecurrenceConstraint = (typeof VALID_CONSTRAINTS)[number]
 
 /**
  * Normalize recurrence object
@@ -150,6 +177,8 @@ function normalizeRecurrence(value: unknown):
       daysOfWeek?: number[]
       dayOfMonth?: number
       endDate?: string
+      anchorDay?: number
+      constraint?: RecurrenceConstraint
     }
   | undefined {
   if (value === null || value === undefined) return undefined
@@ -162,12 +191,18 @@ function normalizeRecurrence(value: unknown):
     return undefined
   }
 
+  const constraint = rec['constraint']
+  const isValidConstraint = (v: unknown): v is RecurrenceConstraint =>
+    typeof v === 'string' && VALID_CONSTRAINTS.includes(v as RecurrenceConstraint)
+
   return {
     pattern: pattern as 'daily' | 'weekly' | 'monthly' | 'custom',
     interval: typeof rec['interval'] === 'number' ? rec['interval'] : 1,
     ...(Array.isArray(rec['daysOfWeek']) && { daysOfWeek: rec['daysOfWeek'] as number[] }),
     ...(typeof rec['dayOfMonth'] === 'number' && { dayOfMonth: rec['dayOfMonth'] }),
     ...(typeof rec['endDate'] === 'string' && { endDate: rec['endDate'] }),
+    ...(typeof rec['anchorDay'] === 'number' && { anchorDay: rec['anchorDay'] }),
+    ...(isValidConstraint(constraint) && { constraint }),
   }
 }
 

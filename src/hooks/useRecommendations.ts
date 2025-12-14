@@ -3,6 +3,7 @@ import { useSettingsStore } from '@/stores'
 import { useTasks } from './useTasks'
 import { getOpenRouterClient } from '@/services/openrouter'
 import { WHAT_TO_DO_NEXT_PROMPT } from '@/lib/ai-prompts'
+import { isTaskScheduledNow } from '@/lib/recurrence-utils'
 import type { Task, TaskContext, TaskEnergy } from '@/types/task'
 
 export interface RecommendationContext {
@@ -94,8 +95,13 @@ export function useRecommendations(): UseRecommendationsReturn {
         throw new Error('API key not configured')
       }
 
-      // Filter to incomplete tasks only
-      const incompleteTasks = tasks.filter((task) => !task.isCompleted && !task.isSomedayMaybe)
+      // Filter to incomplete tasks that are currently actionable
+      const incompleteTasks = tasks.filter(
+        (task) =>
+          !task.isCompleted &&
+          !task.isSomedayMaybe &&
+          isTaskScheduledNow(task.scheduledStart, task.scheduledEnd)
+      )
 
       if (incompleteTasks.length === 0) {
         const result: RecommendationResult = {

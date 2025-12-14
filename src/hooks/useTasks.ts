@@ -1,8 +1,9 @@
-import { useCallback, useEffect, useRef, useState } from 'react'
-import { useDatabaseContext } from '@/contexts/DatabaseContext'
+import { useCallback, useMemo } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '@/lib/dexie-database'
 import { useUIStore, type TaskFilters } from '@/stores/ui.store'
 import type { Task } from '@/types/task'
-import type { RxDocument } from 'rxdb'
+import { taskSchema } from '@/types/schemas/task.schema'
 import { createNextInstance } from '@/services/recurrence'
 
 interface UseTasksReturn {
@@ -19,12 +20,6 @@ interface UseTasksReturn {
 
 function generateId(): string {
   return `task-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`
-}
-
-function documentToTask(doc: RxDocument<Task>): Task {
-  // Deep clone the entire document to convert DeepReadonly to mutable
-  // This ensures all fields (including new ones) are automatically included
-  return JSON.parse(JSON.stringify(doc.toJSON())) as Task
 }
 
 function applyFilters(tasks: Task[], filters: TaskFilters): Task[] {
@@ -54,52 +49,20 @@ function applyFilters(tasks: Task[], filters: TaskFilters): Task[] {
 }
 
 export function useTasks(): UseTasksReturn {
-  const { db, isLoading: isDbLoading } = useDatabaseContext()
   const filters = useUIStore((state) => state.filters)
-  const [tasks, setTasks] = useState<Task[]>([])
-  const [isLoading, setIsLoading] = useState(true)
-  const [error, setError] = useState<Error | null>(null)
-  const isFirstRender = useRef(true)
 
-  // Subscribe to tasks collection
-  useEffect(() => {
-    if (db === null || isDbLoading) {
-      return
-    }
+  // Reactive query using Dexie liveQuery
+  const allTasks = useLiveQuery(() => db.tasks.orderBy('createdAt').reverse().toArray(), [])
 
-    // Only set loading on first render to avoid cascading renders
-    if (isFirstRender.current) {
-      isFirstRender.current = false
-    }
+  const isLoading = allTasks === undefined
 
-    const subscription = db.tasks
-      .find()
-      .sort({ createdAt: 'desc' })
-      .$.subscribe({
-        next: (docs) => {
-          const allTasks = docs.map((doc) => documentToTask(doc))
-          const filteredTasks = applyFilters(allTasks, filters)
-          setTasks(filteredTasks)
-          setIsLoading(false)
-          setError(null)
-        },
-        error: (err: Error) => {
-          setError(err)
-          setIsLoading(false)
-        },
-      })
-
-    return (): void => {
-      subscription.unsubscribe()
-    }
-  }, [db, isDbLoading, filters])
+  const tasks = useMemo(() => {
+    if (!allTasks) return []
+    return applyFilters(allTasks, filters)
+  }, [allTasks, filters])
 
   const addTask = useCallback(
     async (taskData: Omit<Task, 'id' | 'createdAt' | 'updatedAt'>): Promise<Task> => {
-      if (db === null) {
-        throw new Error('Database not initialized')
-      }
-
       const now = new Date().toISOString()
       const newTask: Task = {
         ...taskData,
@@ -109,110 +72,83 @@ export function useTasks(): UseTasksReturn {
         updatedAt: now,
       }
 
-      await db.tasks.insert(newTask)
-      return newTask
+      // Validate with Zod before inserting
+      const validated = taskSchema.parse(newTask)
+      await db.tasks.add(validated)
+      return validated
     },
-    [db]
+    []
   )
 
-  const updateTask = useCallback(
-    async (id: string, updates: Partial<Task>): Promise<void> => {
-      if (db === null) {
-        throw new Error('Database not initialized')
+  const updateTask = useCallback(async (id: string, updates: Partial<Task>): Promise<void> => {
+    const existing = await db.tasks.get(id)
+    if (!existing) {
+      throw new Error(`Task with id ${id} not found`)
+    }
+
+    await db.tasks.update(id, {
+      ...updates,
+      updatedAt: new Date().toISOString(),
+    })
+  }, [])
+
+  const completeTask = useCallback(async (id: string): Promise<void> => {
+    const task = await db.tasks.get(id)
+    if (!task) {
+      throw new Error(`Task with id ${id} not found`)
+    }
+
+    const now = new Date().toISOString()
+
+    // Mark current task as completed
+    await db.tasks.update(id, {
+      isCompleted: true,
+      completedAt: now,
+      updatedAt: now,
+    })
+
+    // If task is recurring, create next instance
+    if (task.recurrence !== undefined) {
+      const nextTask = createNextInstance({ ...task, completedAt: now })
+      if (nextTask !== null) {
+        await db.tasks.add(nextTask)
       }
+    }
+  }, [])
 
-      const doc = await db.tasks.findOne(id).exec()
-      if (doc === null) {
-        throw new Error(`Task with id ${id} not found`)
-      }
+  const uncompleteTask = useCallback(async (id: string): Promise<void> => {
+    const existing = await db.tasks.get(id)
+    if (!existing) {
+      throw new Error(`Task with id ${id} not found`)
+    }
 
-      await doc.patch({
-        ...updates,
-        updatedAt: new Date().toISOString(),
-      })
-    },
-    [db]
-  )
+    await db.tasks.update(id, {
+      isCompleted: false,
+      completedAt: undefined,
+      updatedAt: new Date().toISOString(),
+    })
+  }, [])
 
-  const completeTask = useCallback(
-    async (id: string): Promise<void> => {
-      if (db === null) {
-        throw new Error('Database not initialized')
-      }
+  const deleteTask = useCallback(async (id: string): Promise<void> => {
+    const existing = await db.tasks.get(id)
+    if (!existing) {
+      throw new Error(`Task with id ${id} not found`)
+    }
 
-      const doc = await db.tasks.findOne(id).exec()
-      if (doc === null) {
-        throw new Error(`Task with id ${id} not found`)
-      }
-
-      const now = new Date().toISOString()
-
-      // Mark current task as completed
-      await doc.patch({
-        isCompleted: true,
-        completedAt: now,
-        updatedAt: now,
-      })
-
-      // If task is recurring, create next instance
-      const task = documentToTask(doc)
-      if (task.recurrence !== undefined) {
-        const nextTask = createNextInstance({ ...task, completedAt: now })
-        if (nextTask !== null) {
-          await db.tasks.insert(nextTask)
-        }
-      }
-    },
-    [db]
-  )
-
-  const uncompleteTask = useCallback(
-    async (id: string): Promise<void> => {
-      if (db === null) {
-        throw new Error('Database not initialized')
-      }
-
-      const doc = await db.tasks.findOne(id).exec()
-      if (doc === null) {
-        throw new Error(`Task with id ${id} not found`)
-      }
-
-      await doc.patch({
-        isCompleted: false,
-        completedAt: undefined,
-        updatedAt: new Date().toISOString(),
-      })
-    },
-    [db]
-  )
-
-  const deleteTask = useCallback(
-    async (id: string): Promise<void> => {
-      if (db === null) {
-        throw new Error('Database not initialized')
-      }
-
-      const doc = await db.tasks.findOne(id).exec()
-      if (doc === null) {
-        throw new Error(`Task with id ${id} not found`)
-      }
-
-      await doc.remove()
-    },
-    [db]
-  )
+    await db.tasks.delete(id)
+  }, [])
 
   const getTaskById = useCallback(
     (id: string): Task | undefined => {
-      return tasks.find((task) => task.id === id)
+      return allTasks?.find((task) => task.id === id)
     },
-    [tasks]
+    [allTasks]
   )
 
   return {
     tasks,
-    isLoading: isLoading || isDbLoading,
-    error,
+    isLoading,
+    error: null,
     addTask,
     updateTask,
     completeTask,

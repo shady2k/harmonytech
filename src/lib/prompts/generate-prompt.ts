@@ -7,7 +7,7 @@
  * This ensures the prompt always matches the schema - add a field with
  * forExtraction: true in task.master.ts and the prompt updates automatically.
  */
-import { getExtractionFields, type AIFieldMeta } from '@/lib/schemas/task.master'
+import { getExtractionFields, type AIFieldMeta } from '@/types/schemas/task.schema'
 
 /**
  * Format field hints for the prompt
@@ -91,8 +91,17 @@ Recurrence extraction guidelines:
 - "по понедельникам и средам" → pattern: "weekly", daysOfWeek: [1, 3]
 - "каждое 20 число" → pattern: "monthly", dayOfMonth: 20
 - "с 20 по 25 ежемесячно" → pattern: "monthly", dayOfMonth: 20 (start day), scheduledEnd for end day
+- "в выходные после 10 числа ежемесячно" → pattern: "monthly", anchorDay: 10, constraint: "next-weekend"
+- "в рабочий день после 15 числа каждого месяца" → pattern: "monthly", anchorDay: 15, constraint: "next-weekday"
 - If no recurrence mentioned, set recurrence to null
 - daysOfWeek uses ISO weekday: 1=Monday, 7=Sunday
+- constraint values: "next-weekend" (Sat-Sun), "next-weekday" (Mon-Fri), "next-saturday", "next-sunday"
+
+One-time relative dates (NO recurrence):
+- "в эти выходные" / "this weekend" → calculate actual Saturday-Sunday dates, recurrence: null
+- "в следующие выходные" / "next weekend" → calculate next Saturday-Sunday dates, recurrence: null
+- "в субботу" / "on Saturday" → calculate this/next Saturday, recurrence: null
+These are ONE-TIME tasks, do NOT set recurrence
 
 FIELD EXAMPLES:
 ${formatExamples(fields)}
@@ -100,9 +109,11 @@ ${formatExamples(fields)}
 FULL EXAMPLES:
 - "завтра в 9 утра пожарить яичницу" → nextAction: "Пожарить яичницу", scheduledStart: (tomorrow at 09:00:00), scheduledEnd: null, recurrence: null
 - "оплатить счета с 10 по 15 января" → nextAction: "Оплатить счета", scheduledStart: "2025-01-10T00:00:00", scheduledEnd: "2025-01-15T23:59:59", recurrence: null
-- "передать показания воды ежемесячно с 20 по 25" → nextAction: "Передать показания воды", scheduledStart: (20th of current month), scheduledEnd: (25th of current month), recurrence: {"pattern": "monthly", "interval": 1, "dayOfMonth": 20}
+- "передать показания воды ежемесячно с 20 по 25" → nextAction: "Передать показания воды", scheduledStart: (20th of current month at 00:00:00), scheduledEnd: (25th of current month at 23:59:59), recurrence: {"pattern": "monthly", "interval": 1, "dayOfMonth": 20}
 - "тренировка по понедельникам и средам в 18:00" → nextAction: "Тренировка", scheduledStart: (next Mon or Wed at 18:00), recurrence: {"pattern": "weekly", "interval": 1, "daysOfWeek": [1, 3]}
 - "купить молоко" → nextAction: "Купить молоко", scheduledStart: null, scheduledEnd: null, recurrence: null
+- "в эти выходные помыть машину" → nextAction: "Помыть машину", scheduledStart: (this Saturday at 00:00:00), scheduledEnd: (this Sunday at 23:59:59), recurrence: null
+- "в выходные после 10 числа каждого месяца - уборка" → nextAction: "Уборка", scheduledStart: (calculate first Sat after 10th), scheduledEnd: (that Sunday at 23:59:59), recurrence: {"pattern": "monthly", "anchorDay": 10, "constraint": "next-weekend"}
 
 Guidelines:
 - Next actions should be specific and start with a verb (Call, Email, Write, Buy, Review, etc.)

@@ -1,6 +1,7 @@
 import { type ReactElement, useCallback, useEffect, useRef, useState } from 'react'
-import { useDatabaseContext } from '@/contexts/DatabaseContext'
-import type { Project } from '@/types/project'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { db } from '@/lib/dexie-database'
+import { projectSchema } from '@/types/project'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 
@@ -17,33 +18,14 @@ export function ProjectSelector({
   placeholder = 'Select project...',
   className = '',
 }: ProjectSelectorProps): ReactElement {
-  const { db } = useDatabaseContext()
   const [isOpen, setIsOpen] = useState(false)
-  const [projects, setProjects] = useState<Project[]>([])
   const [newProjectName, setNewProjectName] = useState('')
   const [isCreating, setIsCreating] = useState(false)
   const dropdownRef = useRef<HTMLDivElement>(null)
 
-  // Load projects from database
-  useEffect(() => {
-    if (db === null) return
-
-    const subscription = db.projects
-      .find()
-      .where('isActive')
-      .equals(true)
-      .sort({ name: 'asc' })
-      .$.subscribe({
-        next: (docs) => {
-          const loadedProjects = docs.map((doc) => doc.toJSON() as Project)
-          setProjects(loadedProjects)
-        },
-      })
-
-    return (): void => {
-      subscription.unsubscribe()
-    }
-  }, [db])
+  // Load projects from database using Dexie liveQuery
+  const projects =
+    useLiveQuery(() => db.projects.where('isActive').equals(1).sortBy('name'), []) ?? []
 
   // Close dropdown when clicking outside
   useEffect(() => {
@@ -70,23 +52,23 @@ export function ProjectSelector({
   )
 
   const handleCreateProject = useCallback(async (): Promise<void> => {
-    if (db === null || newProjectName.trim() === '') return
+    if (newProjectName.trim() === '') return
 
     const now = new Date().toISOString()
-    const newProject: Project = {
+    const newProject = projectSchema.parse({
       id: `project-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`,
       name: newProjectName.trim(),
       isActive: true,
       createdAt: now,
       updatedAt: now,
-    }
+    })
 
-    await db.projects.insert(newProject)
+    await db.projects.add(newProject)
     onChange(newProject.name)
     setNewProjectName('')
     setIsCreating(false)
     setIsOpen(false)
-  }, [db, newProjectName, onChange])
+  }, [newProjectName, onChange])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent): void => {

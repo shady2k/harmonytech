@@ -1,5 +1,5 @@
 import { useDatabaseContext } from '@/contexts/DatabaseContext'
-import type { HarmonyTechDatabase } from '@/lib/database'
+import type { HarmonyDatabase } from '@/lib/dexie-database'
 
 interface UseDatabaseLoadingResult {
   db: null
@@ -14,7 +14,7 @@ interface UseDatabaseErrorResult {
 }
 
 interface UseDatabaseReadyResult {
-  db: HarmonyTechDatabase
+  db: HarmonyDatabase
   isLoading: false
   error: null
 }
@@ -30,10 +30,6 @@ export function useDatabase(): UseDatabaseResult {
 
   if (error) {
     return { db: null, isLoading: false, error }
-  }
-
-  if (!db) {
-    throw new Error('Database not initialized')
   }
 
   return { db, isLoading: false, error: null }

@@ -8,6 +8,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useTasks } from './useTasks'
 import { useThoughts } from './useThoughts'
 import { useAI } from './useAI'
+import { isTaskScheduledNow } from '@/lib/recurrence-utils'
 import type { Task, TaskContext, TaskEnergy } from '@/types/task'
 import type { Thought } from '@/types/thought'
 
@@ -79,8 +80,13 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
         return
       }
 
-      // Filter to incomplete tasks only
-      const incompleteTasks = tasks.filter((task) => !task.isCompleted && !task.isSomedayMaybe)
+      // Filter to incomplete tasks that are currently actionable
+      const incompleteTasks = tasks.filter(
+        (task) =>
+          !task.isCompleted &&
+          !task.isSomedayMaybe &&
+          isTaskScheduledNow(task.scheduledStart, task.scheduledEnd)
+      )
 
       if (incompleteTasks.length === 0) {
         setRecommendations([])

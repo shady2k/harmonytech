@@ -54,6 +54,13 @@ export function YandexSettings(): ReactElement {
     }
   }, [yandexApiKey, yandexFolderId, isApiKeyValid, isValidating, validateApiKey])
 
+  // Set default model when credentials become valid and no model is set
+  useEffect(() => {
+    if (isApiKeyValid === true && (textModel === null || textModel === '')) {
+      setTextModel('yandexgpt-lite')
+    }
+  }, [isApiKeyValid, textModel, setTextModel])
+
   const handleApiKeyChange = useCallback((e: ChangeEvent<HTMLInputElement>): void => {
     setApiKeyInput(e.target.value)
   }, [])

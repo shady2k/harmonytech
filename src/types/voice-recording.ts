@@ -1,9 +1,5 @@
-export interface VoiceRecording {
-  id: string
-  audioData: string // Base64 encoded audio blob
-  transcript?: string
-  processedAt?: string
-  extractedTaskIds: string[]
-  extractedThoughtIds: string[]
-  createdAt: string
-}
+/**
+ * Voice Recording Types - Re-exports from Zod schema (single source of truth)
+ */
+export type { VoiceRecording } from './schemas'
+export { voiceRecordingSchema } from './schemas'

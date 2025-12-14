@@ -122,12 +122,12 @@ export function createLogger(module: string): Logger {
 // Pre-configured loggers for common modules
 export const logger = {
   ai: createLogger('AI'),
+  aiQueue: createLogger('AIQueue'),
   backgroundAI: createLogger('BackgroundAI'),
   yandex: createLogger('Yandex'),
   openrouter: createLogger('OpenRouter'),
   db: createLogger('Database'),
   capture: createLogger('Capture'),
-  migration: createLogger('Migration'),
 }
 
 // Enable/disable debug mode

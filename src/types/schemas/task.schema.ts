@@ -1,18 +1,19 @@
 /**
- * Master Task Schema - Single Source of Truth
+ * Task Schema - Single Source of Truth
  *
  * This Zod schema defines the Task structure with embedded AI hints.
  * From this schema we derive:
  * 1. TypeScript types (via z.infer)
- * 2. RxDB schema (task.schema.ts must be updated to match)
+ * 2. Dexie database types
  * 3. AI extraction prompt (via generate-prompt.ts)
  * 4. Response parser (via Zod's parse/safeParse)
- *
- * To add a new field:
- * 1. Add it here with appropriate AI hint
- * 2. All derived artifacts update automatically
  */
 import { z } from 'zod'
+import { taskContextSchema, taskEnergySchema } from './common.schema'
+
+// Re-export from common
+export { taskContextSchema, taskEnergySchema }
+export type { TaskContext, TaskEnergy } from './common.schema'
 
 // ============================================================
 // AI Hint Metadata Types
@@ -22,7 +23,6 @@ export interface AIFieldMeta {
   hint: string
   examples?: string[]
   forExtraction?: boolean // Whether this field should be extracted by AI
-  rxdbMaxLength?: number // Optional max length for RxDB schema
 }
 
 // Store AI metadata separately since Zod descriptions are just strings
@@ -49,18 +49,20 @@ export function getAllAIMeta(): Map<string, AIFieldMeta> {
   return aiFieldMeta
 }
 
-// ============================================================
-// Enum Schemas
-// ============================================================
-
-export const taskContextSchema = z.enum(['computer', 'phone', 'errands', 'home', 'anywhere'])
-export type TaskContext = z.infer<typeof taskContextSchema>
-
-export const taskEnergySchema = z.enum(['high', 'medium', 'low'])
-export type TaskEnergy = z.infer<typeof taskEnergySchema>
-
 export const recurrencePatternSchema = z.enum(['daily', 'weekly', 'monthly', 'custom'])
 export type RecurrencePattern = z.infer<typeof recurrencePatternSchema>
+
+/**
+ * Constraint for relative scheduling within a recurrence pattern
+ * Used to express rules like "the weekend after the 10th"
+ */
+export const recurrenceConstraintSchema = z.enum([
+  'next-weekend', // First Sat-Sun on or after anchorDay
+  'next-weekday', // First Mon-Fri on or after anchorDay
+  'next-saturday', // First Saturday on or after anchorDay
+  'next-sunday', // First Sunday on or after anchorDay
+])
+export type RecurrenceConstraint = z.infer<typeof recurrenceConstraintSchema>
 
 export const classificationStatusSchema = z.enum(['pending', 'classified', 'user_override'])
 export type ClassificationStatus = z.infer<typeof classificationStatusSchema>
@@ -75,6 +77,9 @@ export const recurrenceSchema = z.object({
   daysOfWeek: z.array(z.number().min(1).max(7)).optional(),
   dayOfMonth: z.number().min(1).max(31).optional(),
   endDate: z.string().optional(),
+  // Extended fields for complex scheduling
+  anchorDay: z.number().min(1).max(31).optional(), // Reference day for constraint calculation
+  constraint: recurrenceConstraintSchema.optional(), // Relative constraint (e.g., "next weekend after anchorDay")
 })
 export type Recurrence = z.infer<typeof recurrenceSchema>
 
@@ -88,6 +93,8 @@ registerAIMeta('recurrence', {
     '"каждые 2 недели" → {pattern: "weekly", interval: 2}',
     '"по понедельникам и средам" → {pattern: "weekly", daysOfWeek: [1, 3]}',
     '"каждое 20 число" → {pattern: "monthly", dayOfMonth: 20}',
+    '"в выходные после 10 числа каждого месяца" → {pattern: "monthly", anchorDay: 10, constraint: "next-weekend"}',
+    '"каждый месяц в первые рабочие дни после 15" → {pattern: "monthly", anchorDay: 15, constraint: "next-weekday"}',
   ],
   forExtraction: true,
 })
@@ -162,24 +169,24 @@ registerAIMeta('nextAction', {
 })
 
 registerAIMeta('scheduledStart', {
-  hint: 'ISO 8601 datetime when task should start. Set to null if no date/time mentioned.',
+  hint: 'ISO 8601 datetime when task should start. Set to null if no date/time mentioned. For one-time relative dates, calculate the actual date.',
   examples: [
     '"завтра в 9 утра" → calculate next day at 09:00:00',
     '"в понедельник" → calculate next Monday at 00:00:00',
     '"с 10 января" → "2025-01-10T00:00:00"',
+    '"в эти выходные" → calculate this Saturday at 00:00:00 (one-time, no recurrence)',
+    '"на следующих выходных" → calculate next Saturday at 00:00:00 (one-time, no recurrence)',
   ],
   forExtraction: true,
-  rxdbMaxLength: 30,
 })
 
 registerAIMeta('scheduledEnd', {
   hint: 'ISO 8601 datetime for end of date range. Only set for date ranges, otherwise null.',
   examples: [
     '"с 10 по 15 января" → scheduledEnd: "2025-01-15T23:59:59"',
-    '"до 20 числа" → scheduledEnd: "2025-XX-20T23:59:59"',
+    '"в эти выходные" → scheduledEnd: calculate this Sunday at 23:59:59',
   ],
   forExtraction: true,
-  rxdbMaxLength: 30,
 })
 
 // ============================================================
