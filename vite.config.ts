@@ -66,6 +66,7 @@ export default defineConfig({
     },
   },
   server: {
+    host: true, // Listen on all network interfaces for LAN access
     port: 5175,
     proxy: {
       '/api/yandex-llm': {
