@@ -9,7 +9,6 @@ import {
   type RecommendationsResult,
   type RecommendationsContext,
 } from '@/services/recommendations'
-import { aiService } from '@/services/ai'
 import { useAIStatus } from '@/hooks/useAIStatus'
 import { extractionCacheKey, propertiesCacheKey, recommendationsCacheKey } from '@/lib/cache-utils'
 import {
@@ -80,7 +79,7 @@ export function useAI(): UseAIReturn {
 
   const extractTasks = useCallback(
     async (text: string): Promise<ExtractionResult> => {
-      if (!aiService.isAvailable()) {
+      if (!isAIAvailable) {
         throw new Error('AI service not configured')
       }
 
@@ -111,7 +110,7 @@ export function useAI(): UseAIReturn {
         setIsProcessing(false)
       }
     },
-    [textModel, cacheGet, cacheSet]
+    [textModel, cacheGet, cacheSet, isAIAvailable]
   )
 
   const processVoice = useCallback(
@@ -143,7 +142,7 @@ export function useAI(): UseAIReturn {
 
   const suggestTaskProperties = useCallback(
     async (taskText: string, existingProjects: string[] = []): Promise<PropertySuggestions> => {
-      if (!aiService.isAvailable() || textModel === null || textModel === '') {
+      if (!isAIAvailable || textModel === null || textModel === '') {
         throw new Error('AI service not configured')
       }
 
@@ -170,12 +169,12 @@ export function useAI(): UseAIReturn {
         setIsProcessing(false)
       }
     },
-    [textModel, cacheGet, cacheSet]
+    [textModel, cacheGet, cacheSet, isAIAvailable]
   )
 
   const getRecommendations = useCallback(
     async (tasks: Task[], context: RecommendationsContext): Promise<RecommendationsResult> => {
-      if (!aiService.isAvailable() || textModel === null || textModel === '') {
+      if (!isAIAvailable || textModel === null || textModel === '') {
         throw new Error('AI service not configured')
       }
 
@@ -208,7 +207,7 @@ export function useAI(): UseAIReturn {
         setIsProcessing(false)
       }
     },
-    [textModel, cacheGet, cacheSet]
+    [textModel, cacheGet, cacheSet, isAIAvailable]
   )
 
   return {

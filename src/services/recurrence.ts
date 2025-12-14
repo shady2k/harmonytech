@@ -1,13 +1,23 @@
 import type { Recurrence, Task } from '@/types/task'
+import { resolveRecurrenceDate } from '@/lib/date-resolver'
 
 /**
  * Calculate the next occurrence date based on recurrence pattern
+ * Note: For simple patterns only. For complex patterns (anchorDay + constraint),
+ * use resolveRecurrenceDate from date-resolver.ts
  */
 export function calculateNextOccurrence(
   recurrence: Recurrence,
   fromDate: Date = new Date()
 ): Date | null {
-  const { pattern, interval, daysOfWeek, dayOfMonth, endDate } = recurrence
+  const { pattern, interval, daysOfWeek, dayOfMonth, endDate, anchorDay, constraint } = recurrence
+
+  // For complex patterns with anchorDay + constraint, use the date resolver
+  if (anchorDay !== undefined && constraint !== undefined) {
+    const resolved = resolveRecurrenceDate(recurrence, undefined, fromDate)
+    if (resolved === null) return null
+    return new Date(resolved.scheduledStart)
+  }
 
   const nextDate = new Date(fromDate)
   nextDate.setHours(0, 0, 0, 0)
@@ -105,11 +115,24 @@ export function createNextInstance(task: Task): Task | null {
   }
 
   const completedAt = task.completedAt !== undefined ? new Date(task.completedAt) : new Date()
-  const nextOccurrence = calculateNextOccurrence(task.recurrence, completedAt)
 
-  if (nextOccurrence === null) {
-    // Recurrence has ended
+  // Use the date resolver for accurate date calculation
+  // This handles complex patterns like "weekend after 10th of each month"
+  // skipCurrent=true ensures we move to the NEXT occurrence, not the current one
+  const resolved = resolveRecurrenceDate(task.recurrence, undefined, completedAt, true)
+
+  if (resolved === null) {
+    // Recurrence has ended or invalid pattern
     return null
+  }
+
+  // Check if recurrence has ended
+  if (task.recurrence.endDate !== undefined) {
+    const end = new Date(task.recurrence.endDate)
+    const nextStart = new Date(resolved.scheduledStart)
+    if (nextStart > end) {
+      return null
+    }
   }
 
   const now = new Date().toISOString()
@@ -118,7 +141,7 @@ export function createNextInstance(task: Task): Task | null {
   const generateId = (): string =>
     `task-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`
 
-  // Create new task instance
+  // Create new task instance with calculated dates
   const newTask: Task = {
     id: generateId(),
     rawInput: task.rawInput,
@@ -135,8 +158,11 @@ export function createNextInstance(task: Task): Task | null {
     aiSuggestions: task.aiSuggestions,
     recurrence: task.recurrence,
     sourceThoughtId: task.sourceThoughtId ?? '',
-    // Set deadline to next occurrence date if original had a deadline
-    deadline: task.deadline !== undefined ? nextOccurrence.toISOString() : undefined,
+    // Set scheduled dates from the resolver
+    scheduledStart: resolved.scheduledStart,
+    scheduledEnd: resolved.scheduledEnd ?? undefined,
+    // Keep deadline if original had one
+    deadline: task.deadline,
   }
 
   return newTask
@@ -161,7 +187,7 @@ export function getRecurrenceDescription(recurrence: Recurrence | undefined): st
     return 'Does not repeat'
   }
 
-  const { pattern, interval, daysOfWeek, dayOfMonth } = recurrence
+  const { pattern, interval, daysOfWeek, dayOfMonth, anchorDay, constraint } = recurrence
 
   const daysMap: Record<number, string> = {
     0: 'Sunday',
@@ -186,6 +212,19 @@ export function getRecurrenceDescription(recurrence: Recurrence | undefined): st
       return interval === 1 ? 'Weekly' : `Every ${String(interval)} weeks`
 
     case 'monthly':
+      // Handle complex constraint patterns
+      if (anchorDay !== undefined && constraint !== undefined) {
+        const constraintText =
+          constraint === 'next-weekend'
+            ? 'weekend'
+            : constraint === 'next-weekday'
+              ? 'weekday'
+              : constraint === 'next-saturday'
+                ? 'Saturday'
+                : 'Sunday'
+        const prefix = interval === 1 ? 'Monthly' : `Every ${String(interval)} months`
+        return `${prefix}, ${constraintText} after the ${String(anchorDay)}${getOrdinalSuffix(anchorDay)}`
+      }
       if (dayOfMonth !== undefined) {
         const suffix = getOrdinalSuffix(dayOfMonth)
         const prefix = interval === 1 ? 'Monthly' : `Every ${String(interval)} months`

@@ -60,6 +60,15 @@ export function TaskList({
     useTasks()
   const { selectedTaskId, selectTask, clearSelection, openCapture } = useUIStore()
   const [showFilterPanel, setShowFilterPanel] = useState(false)
+  const [completeError, setCompleteError] = useState<string | null>(null)
+
+  // Track new tasks for animation using creation timestamp
+  const recentThreshold = 500 // Tasks created within last 500ms are considered "new"
+  const isNewTask = useCallback((task: Task): boolean => {
+    const createdAt = new Date(task.createdAt).getTime()
+    const now = Date.now()
+    return now - createdAt < recentThreshold
+  }, [])
 
   const selectedTask = useMemo(() => {
     if (selectedTaskId === null) return null
@@ -75,8 +84,16 @@ export function TaskList({
 
   const handleToggleComplete = useCallback(
     (id: string, isCompleted: boolean): void => {
+      setCompleteError(null)
       if (isCompleted) {
-        void completeTask(id)
+        completeTask(id).catch((err: unknown) => {
+          const message = err instanceof Error ? err.message : 'Failed to complete task'
+          setCompleteError(message)
+          // Auto-clear error after 5 seconds
+          setTimeout(() => {
+            setCompleteError(null)
+          }, 5000)
+        })
       } else {
         void uncompleteTask(id)
       }
@@ -129,6 +146,13 @@ export function TaskList({
 
   return (
     <div className={`flex h-full ${className}`}>
+      {/* Error message for task completion */}
+      {completeError !== null && (
+        <div className="absolute left-1/2 top-4 z-50 -translate-x-1/2 rounded-lg bg-red-100 px-4 py-3 text-sm text-red-700 shadow-lg dark:bg-red-900 dark:text-red-200">
+          {completeError}
+        </div>
+      )}
+
       {/* Main task list */}
       <div className="flex-1 overflow-hidden">
         {/* Filter toggle for mobile */}
@@ -196,6 +220,7 @@ export function TaskList({
                         task={task}
                         onToggleComplete={handleToggleComplete}
                         onClick={handleTaskClick}
+                        isNew={isNewTask(task)}
                       />
                     ))}
                   </div>
@@ -220,6 +245,7 @@ export function TaskList({
             task={selectedTask}
             onUpdate={handleUpdate}
             onDelete={handleDelete}
+            onComplete={completeTask}
             onClose={clearSelection}
           />
         )}

@@ -14,6 +14,7 @@ import { useAI } from './useAI'
 import { logger } from '@/lib/logger'
 import { aiQueue } from '@/lib/ai-queue'
 import { RETRY_DELAYS, MAX_RETRIES } from '@/lib/constants/ai'
+import { resolveExtractedTaskDates } from '@/lib/date-resolver'
 import type { Thought, ProcessingStatus } from '@/types/thought'
 
 const log = logger.backgroundAI
@@ -192,8 +193,13 @@ export function useBackgroundAI(): BackgroundAIState {
         )
         log.debug('Extraction result:', result)
 
-        if (result.tasks.length === 0) {
-          // No tasks found, mark as processed
+        // Filter to only actionable tasks with a valid nextAction
+        const actionableTasks = result.tasks.filter(
+          (task) => task.isActionable && task.nextAction.trim() !== ''
+        )
+
+        if (actionableTasks.length === 0) {
+          // No actionable tasks found, mark as processed
           await db.thoughts.update(thought.id, {
             aiProcessed: true,
             processingStatus: 'processed',
@@ -208,7 +214,7 @@ export function useBackgroundAI(): BackgroundAIState {
         const taskIds: string[] = []
         let overallConfidence = 1.0
 
-        for (const extractedTask of result.tasks) {
+        for (const extractedTask of actionableTasks) {
           const taskId = `task-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`
           taskIds.push(taskId)
 
@@ -243,6 +249,14 @@ export function useBackgroundAI(): BackgroundAIState {
           // Track minimum confidence across all tasks
           overallConfidence = Math.min(overallConfidence, taskConfidence)
 
+          // Calculate actual dates from semantic anchors
+          // AI extracts meaning, we calculate dates (AI doesn't have a calendar)
+          const resolvedDates = resolveExtractedTaskDates(
+            extractedTask.dateAnchor,
+            extractedTask.dateAnchorEnd,
+            extractedTask.recurrence
+          )
+
           // Create the task with classification status based on confidence
           log.debug('Creating task:', {
             taskId,
@@ -251,6 +265,7 @@ export function useBackgroundAI(): BackgroundAIState {
             energy,
             timeEstimate,
             confidence: taskConfidence,
+            resolvedDates,
           })
 
           try {
@@ -262,8 +277,8 @@ export function useBackgroundAI(): BackgroundAIState {
               energy,
               timeEstimate,
               project,
-              scheduledStart: extractedTask.scheduledStart,
-              scheduledEnd: extractedTask.scheduledEnd,
+              scheduledStart: resolvedDates?.scheduledStart,
+              scheduledEnd: resolvedDates?.scheduledEnd ?? undefined,
               recurrence: extractedTask.recurrence,
               isSomedayMaybe: false,
               isCompleted: false,

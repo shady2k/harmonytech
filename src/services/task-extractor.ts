@@ -2,10 +2,10 @@
  * Task Extractor Service
  *
  * Extracts tasks and thoughts from user input using AI.
- * Uses Zod schemas from task.master.ts for type-safe parsing.
+ * Uses Zod schemas from task.schema.ts for type-safe parsing.
  *
- * The extraction prompt is generated from schema metadata,
- * ensuring the prompt always matches the expected response format.
+ * IMPORTANT: AI extracts SEMANTIC date anchors, not calculated dates.
+ * The date-resolver service calculates actual dates from anchors.
  */
 import { z } from 'zod'
 import { aiService } from './ai'
@@ -13,8 +13,10 @@ import { TASK_EXTRACTION_PROMPT } from '@/lib/ai-prompts'
 import {
   extractedTaskSchema,
   extractedThoughtSchema,
+  dateAnchorSchema,
   type ExtractedTask,
   type ExtractedThought,
+  type DateAnchor,
 } from '@/types/schemas/task.schema'
 
 export interface ExtractionResult {
@@ -93,11 +95,12 @@ function parseLenient(data: unknown): { tasks: ExtractedTask[]; thoughts: Extrac
       isActionable: task['isActionable'] !== false,
     }
 
-    const scheduledStart = normalizeDateString(task['scheduledStart'])
-    if (scheduledStart !== undefined) extracted.scheduledStart = scheduledStart
+    // Parse semantic date anchors
+    const dateAnchor = normalizeDateAnchor(task['dateAnchor'])
+    if (dateAnchor !== undefined) extracted.dateAnchor = dateAnchor
 
-    const scheduledEnd = normalizeDateString(task['scheduledEnd'])
-    if (scheduledEnd !== undefined) extracted.scheduledEnd = scheduledEnd
+    const dateAnchorEnd = normalizeDateAnchor(task['dateAnchorEnd'])
+    if (dateAnchorEnd !== undefined) extracted.dateAnchorEnd = dateAnchorEnd
 
     const recurrence = normalizeRecurrence(task['recurrence'])
     if (recurrence !== undefined) extracted.recurrence = recurrence
@@ -119,40 +122,6 @@ function parseLenient(data: unknown): { tasks: ExtractedTask[]; thoughts: Extrac
   }
 
   return { tasks, thoughts }
-}
-
-/**
- * Normalize optional string field (handle null, undefined, empty)
- * Converts null to undefined for Task compatibility
- */
-function normalizeOptionalString(value: unknown): string | undefined {
-  if (value === null || value === undefined) return undefined
-  if (typeof value === 'string' && value.trim() !== '') return value
-  return undefined
-}
-
-/**
- * Normalize and validate ISO date string
- * Returns undefined if the string is not a valid parseable date
- * Handles AI responses that may contain placeholders like "XX" for unknown values
- */
-function normalizeDateString(value: unknown): string | undefined {
-  const str = normalizeOptionalString(value)
-  if (str === undefined) return undefined
-
-  // Check for placeholder patterns that AI might use (e.g., "2025-XX-20")
-  if (/[^0-9T:\-.Z+]/.test(str.replace(/\d{4}-\d{2}-\d{2}/, ''))) {
-    // Contains non-date characters, likely a placeholder
-    return undefined
-  }
-
-  // Try to parse the date
-  const date = new Date(str)
-  if (Number.isNaN(date.getTime())) {
-    return undefined
-  }
-
-  return str
 }
 
 /**
@@ -207,6 +176,177 @@ function normalizeRecurrence(value: unknown):
 }
 
 /**
+ * Valid relative date values
+ */
+const VALID_RELATIVE_VALUES = [
+  'today',
+  'tomorrow',
+  'day-after-tomorrow',
+  'this-weekend',
+  'next-weekend',
+  'this-week',
+  'next-week',
+] as const
+type RelativeDateValue = (typeof VALID_RELATIVE_VALUES)[number]
+
+/**
+ * Valid offset units
+ */
+const VALID_OFFSET_UNITS = ['days', 'weeks', 'months'] as const
+type OffsetUnit = (typeof VALID_OFFSET_UNITS)[number]
+
+/**
+ * Valid weekday modifiers
+ */
+const VALID_WEEKDAY_MODIFIERS = ['this', 'next'] as const
+type WeekdayModifier = (typeof VALID_WEEKDAY_MODIFIERS)[number]
+
+/**
+ * Normalize and validate date anchor from AI response
+ * Returns undefined if the value is invalid or null
+ */
+function normalizeDateAnchor(value: unknown): DateAnchor | undefined {
+  if (value === null || value === undefined) return undefined
+  if (typeof value !== 'object') return undefined
+
+  const anchor = value as Record<string, unknown>
+  const type = anchor['type']
+
+  // Try Zod validation first
+  const zodResult = dateAnchorSchema.safeParse(value)
+  if (zodResult.success) {
+    return zodResult.data
+  }
+
+  // Fall back to manual normalization for partial matches
+  if (type === 'none') {
+    return { type: 'none' }
+  }
+
+  if (type === 'relative') {
+    const rawValue = anchor['value']
+    if (typeof rawValue === 'string' && isValidRelativeValue(rawValue)) {
+      const result: DateAnchor = { type: 'relative', value: rawValue }
+      const time = normalizeTimeString(anchor['time'])
+      if (time !== undefined) {
+        return { ...result, time }
+      }
+      return result
+    }
+    return undefined
+  }
+
+  if (type === 'offset') {
+    const unit = anchor['unit']
+    const amount = anchor['amount']
+    if (
+      typeof unit === 'string' &&
+      isValidOffsetUnit(unit) &&
+      typeof amount === 'number' &&
+      amount >= 1
+    ) {
+      const result: DateAnchor = { type: 'offset', unit, amount }
+      const time = normalizeTimeString(anchor['time'])
+      if (time !== undefined) {
+        return { ...result, time }
+      }
+      return result
+    }
+    return undefined
+  }
+
+  if (type === 'weekday') {
+    const weekday = anchor['weekday']
+    if (typeof weekday === 'number' && weekday >= 1 && weekday <= 7) {
+      const result: DateAnchor = { type: 'weekday', weekday }
+      const modifier = anchor['modifier']
+      if (typeof modifier === 'string' && isValidWeekdayModifier(modifier)) {
+        ;(result as { modifier?: WeekdayModifier }).modifier = modifier
+      }
+      const time = normalizeTimeString(anchor['time'])
+      if (time !== undefined) {
+        return { ...result, time }
+      }
+      return result
+    }
+    return undefined
+  }
+
+  if (type === 'absolute') {
+    const month = anchor['month']
+    const day = anchor['day']
+    if (
+      typeof month === 'number' &&
+      month >= 1 &&
+      month <= 12 &&
+      typeof day === 'number' &&
+      day >= 1 &&
+      day <= 31
+    ) {
+      const result: DateAnchor = { type: 'absolute', month, day }
+      const year = anchor['year']
+      if (typeof year === 'number') {
+        ;(result as { year?: number }).year = year
+      }
+      const time = normalizeTimeString(anchor['time'])
+      if (time !== undefined) {
+        return { ...result, time }
+      }
+      return result
+    }
+    return undefined
+  }
+
+  return undefined
+}
+
+/**
+ * Type guard for valid relative date values
+ */
+function isValidRelativeValue(value: string): value is RelativeDateValue {
+  return VALID_RELATIVE_VALUES.includes(value as RelativeDateValue)
+}
+
+/**
+ * Type guard for valid offset units
+ */
+function isValidOffsetUnit(value: string): value is OffsetUnit {
+  return VALID_OFFSET_UNITS.includes(value as OffsetUnit)
+}
+
+/**
+ * Type guard for valid weekday modifiers
+ */
+function isValidWeekdayModifier(value: string): value is WeekdayModifier {
+  return VALID_WEEKDAY_MODIFIERS.includes(value as WeekdayModifier)
+}
+
+/**
+ * Normalize time string to HH:mm format
+ */
+function normalizeTimeString(value: unknown): string | undefined {
+  if (typeof value !== 'string') return undefined
+
+  // Check if it matches HH:mm format
+  const match = /^([01]\d|2[0-3]):([0-5]\d)$/.exec(value)
+  if (match !== null) {
+    return value
+  }
+
+  // Try to parse common formats
+  const hourMinMatch = /^(\d{1,2}):(\d{2})$/.exec(value)
+  if (hourMinMatch !== null) {
+    const hours = parseInt(hourMinMatch[1], 10)
+    const minutes = parseInt(hourMinMatch[2], 10)
+    if (hours >= 0 && hours <= 23 && minutes >= 0 && minutes <= 59) {
+      return `${hours.toString().padStart(2, '0')}:${minutes.toString().padStart(2, '0')}`
+    }
+  }
+
+  return undefined
+}
+
+/**
  * Extract tasks and thoughts from user text input
  */
 export async function extractFromText(text: string, model: string): Promise<ExtractionResult> {
@@ -218,14 +358,11 @@ export async function extractFromText(text: string, model: string): Promise<Extr
     throw new Error('AI service is not available')
   }
 
-  const promptWithDateTime = TASK_EXTRACTION_PROMPT.replace(
-    '{currentDateTime}',
-    new Date().toISOString()
-  )
-
+  // Note: We no longer need to pass currentDateTime since AI extracts
+  // semantic anchors, not calculated dates. The app calculates dates.
   const response = await aiService.chat(
     [
-      { role: 'system', content: promptWithDateTime },
+      { role: 'system', content: TASK_EXTRACTION_PROMPT },
       { role: 'user', content: text },
     ],
     model

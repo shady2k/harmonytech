@@ -1,4 +1,4 @@
-import type { ReactElement } from 'react'
+import { type ReactElement, useState } from 'react'
 import type { Task } from '@/types/task'
 import { Card } from '@/components/ui/Card'
 import { ContextBadge } from '@/components/ui/ContextBadge'
@@ -10,6 +10,7 @@ interface TaskCardProps {
   onClick: (id: string) => void
   onViewSourceThought?: (thoughtId: string) => void
   className?: string
+  isNew?: boolean
 }
 
 function formatTimeEstimate(minutes: number): string {
@@ -77,10 +78,24 @@ export function TaskCard({
   onClick,
   onViewSourceThought,
   className = '',
+  isNew = false,
 }: TaskCardProps): ReactElement {
+  const [isAnimatingComplete, setIsAnimatingComplete] = useState(false)
+  const [showCheckboxPop, setShowCheckboxPop] = useState(false)
+
   const handleCheckboxChange = (e: React.MouseEvent): void => {
     e.stopPropagation()
-    onToggleComplete(task.id, !task.isCompleted)
+    if (!task.isCompleted) {
+      // Animate completion
+      setIsAnimatingComplete(true)
+      setShowCheckboxPop(true)
+      // Trigger actual completion after animation plays
+      setTimeout(() => {
+        onToggleComplete(task.id, true)
+      }, 350)
+    } else {
+      onToggleComplete(task.id, false)
+    }
   }
 
   const handleKeyDown = (e: React.KeyboardEvent): void => {
@@ -90,12 +105,18 @@ export function TaskCard({
     }
   }
 
+  const animationClasses = [
+    isNew ? 'animate-task-appear' : '',
+    isAnimatingComplete ? 'animate-task-complete' : '',
+    task.isCompleted && !isAnimatingComplete ? 'opacity-60' : '',
+  ]
+    .filter(Boolean)
+    .join(' ')
+
   return (
     <Card
       padding="none"
-      className={`cursor-pointer transition-all hover:shadow-md ${
-        task.isCompleted ? 'opacity-60' : ''
-      } ${className}`}
+      className={`cursor-pointer transition-all hover:shadow-md ${animationClasses} ${className}`}
       onClick={(): void => {
         onClick(task.id)
       }}
@@ -114,18 +135,18 @@ export function TaskCard({
             if (e.key === 'Enter' || e.key === ' ') {
               e.preventDefault()
               e.stopPropagation()
-              onToggleComplete(task.id, !task.isCompleted)
+              handleCheckboxChange(e as unknown as React.MouseEvent)
             }
           }}
           className={`mt-0.5 flex h-5 w-5 shrink-0 cursor-pointer items-center justify-center rounded-full border-2 transition-colors ${
-            task.isCompleted
+            task.isCompleted || showCheckboxPop
               ? 'border-green-500 bg-green-500'
               : 'border-gray-300 hover:border-gray-400 dark:border-gray-600 dark:hover:border-gray-500'
-          }`}
+          } ${showCheckboxPop ? 'animate-checkbox-pop' : ''}`}
         >
-          {task.isCompleted && (
+          {(task.isCompleted || showCheckboxPop) && (
             <svg
-              className="h-3 w-3 text-white"
+              className={`h-3 w-3 text-white ${showCheckboxPop && !task.isCompleted ? 'animate-checkmark-draw' : ''}`}
               fill="none"
               viewBox="0 0 24 24"
               stroke="currentColor"

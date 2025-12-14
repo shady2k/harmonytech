@@ -52,7 +52,33 @@ export function useTasks(): UseTasksReturn {
   const filters = useUIStore((state) => state.filters)
 
   // Reactive query using Dexie liveQuery
-  const allTasks = useLiveQuery(() => db.tasks.orderBy('createdAt').reverse().toArray(), [])
+  // Sort: 1) Completed last, 2) Tasks without dates first, 3) Tasks with dates by due date
+  const allTasks = useLiveQuery(async () => {
+    const tasks = await db.tasks.toArray()
+    return tasks.sort((a, b) => {
+      // Completed tasks go to the end
+      if (a.isCompleted !== b.isCompleted) {
+        return a.isCompleted ? 1 : -1
+      }
+      const aEnd = a.scheduledEnd
+      const bEnd = b.scheduledEnd
+      const aHasEnd = aEnd !== undefined && aEnd !== ''
+      const bHasEnd = bEnd !== undefined && bEnd !== ''
+      // Tasks without dates come first
+      if (!aHasEnd && bHasEnd) {
+        return -1
+      }
+      if (aHasEnd && !bHasEnd) {
+        return 1
+      }
+      // Both have scheduledEnd - sort ascending (earliest first)
+      if (aHasEnd && bHasEnd) {
+        return aEnd.localeCompare(bEnd)
+      }
+      // Neither has scheduledEnd - sort by createdAt descending (newest first)
+      return b.createdAt.localeCompare(a.createdAt)
+    })
+  }, [])
 
   const isLoading = allTasks === undefined
 
@@ -98,18 +124,29 @@ export function useTasks(): UseTasksReturn {
       throw new Error(`Task with id ${id} not found`)
     }
 
-    const now = new Date().toISOString()
+    const now = new Date()
+    const nowISO = now.toISOString()
+
+    // For recurring tasks with scheduled start, prevent completion before the window starts
+    if (task.recurrence !== undefined && task.scheduledStart !== undefined) {
+      const scheduledStart = new Date(task.scheduledStart)
+      if (now < scheduledStart) {
+        throw new Error(
+          `Cannot complete recurring task before scheduled window. Task is scheduled for ${scheduledStart.toLocaleDateString()}.`
+        )
+      }
+    }
 
     // Mark current task as completed
     await db.tasks.update(id, {
       isCompleted: true,
-      completedAt: now,
-      updatedAt: now,
+      completedAt: nowISO,
+      updatedAt: nowISO,
     })
 
     // If task is recurring, create next instance
     if (task.recurrence !== undefined) {
-      const nextTask = createNextInstance({ ...task, completedAt: now })
+      const nextTask = createNextInstance({ ...task, completedAt: nowISO })
       if (nextTask !== null) {
         await db.tasks.add(nextTask)
       }

@@ -14,6 +14,7 @@ interface TaskDetailProps {
   task: Task
   onUpdate: (id: string, updates: Partial<Task>) => Promise<void>
   onDelete: (id: string) => Promise<void>
+  onComplete: (id: string) => Promise<void>
   onClose: () => void
   onReSuggest?: (task: Task) => void
   className?: string
@@ -26,6 +27,7 @@ export function TaskDetail({
   task,
   onUpdate,
   onDelete,
+  onComplete,
   onClose,
   onReSuggest,
   className = '',
@@ -34,6 +36,8 @@ export function TaskDetail({
   const [editedTask, setEditedTask] = useState<Task>(task)
   const [isSaving, setIsSaving] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [isCompleting, setIsCompleting] = useState(false)
+  const [completeError, setCompleteError] = useState<string | null>(null)
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
 
   // Reset edited task when task prop changes
@@ -72,6 +76,19 @@ export function TaskDetail({
       setIsDeleting(false)
     }
   }, [task.id, onDelete, onClose])
+
+  const handleComplete = useCallback(async (): Promise<void> => {
+    setIsCompleting(true)
+    setCompleteError(null)
+    try {
+      await onComplete(task.id)
+    } catch (err: unknown) {
+      const message = err instanceof Error ? err.message : 'Failed to complete task'
+      setCompleteError(message)
+    } finally {
+      setIsCompleting(false)
+    }
+  }, [task.id, onComplete])
 
   const handleCancel = (): void => {
     setEditedTask(task)
@@ -432,34 +449,56 @@ export function TaskDetail({
             </Button>
           </div>
         ) : (
-          <div className="flex justify-between">
-            <div className="flex gap-2">
-              <Button
-                variant="ghost"
-                onClick={(): void => {
-                  setShowDeleteConfirm(true)
-                }}
-              >
-                Delete
-              </Button>
-              {onReSuggest !== undefined && (
+          <div className="space-y-3">
+            {/* Error message */}
+            {completeError !== null && (
+              <div className="rounded-lg bg-red-100 px-3 py-2 text-sm text-red-700 dark:bg-red-900/50 dark:text-red-200">
+                {completeError}
+              </div>
+            )}
+            <div className="flex justify-between">
+              <div className="flex gap-2">
+                <Button
+                  variant="ghost"
+                  onClick={(): void => {
+                    setShowDeleteConfirm(true)
+                  }}
+                >
+                  Delete
+                </Button>
+                {onReSuggest !== undefined && (
+                  <Button
+                    variant="secondary"
+                    onClick={(): void => {
+                      onReSuggest(task)
+                    }}
+                  >
+                    Re-suggest
+                  </Button>
+                )}
+              </div>
+              <div className="flex gap-2">
                 <Button
                   variant="secondary"
                   onClick={(): void => {
-                    onReSuggest(task)
+                    setIsEditing(true)
                   }}
                 >
-                  Re-suggest
+                  Edit
                 </Button>
-              )}
+                {!task.isCompleted && (
+                  <Button
+                    variant="primary"
+                    onClick={(): void => {
+                      void handleComplete()
+                    }}
+                    isLoading={isCompleting}
+                  >
+                    Mark as Done
+                  </Button>
+                )}
+              </div>
             </div>
-            <Button
-              onClick={(): void => {
-                setIsEditing(true)
-              }}
-            >
-              Edit
-            </Button>
           </div>
         )}
       </div>

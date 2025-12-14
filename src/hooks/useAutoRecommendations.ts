@@ -8,6 +8,7 @@ import { useState, useCallback, useEffect } from 'react'
 import { useTasks } from './useTasks'
 import { useThoughts } from './useThoughts'
 import { useAI } from './useAI'
+import { aiService } from '@/services/ai'
 import { isTaskScheduledNow } from '@/lib/recurrence-utils'
 import type { Task, TaskContext, TaskEnergy } from '@/types/task'
 import type { Thought } from '@/types/thought'
@@ -75,8 +76,9 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
       const timeAvailable = context?.timeAvailable ?? 30 // Default 30 minutes
       const location = context?.location ?? 'anywhere' // Default anywhere
 
-      if (!isAIAvailable) {
-        setError(null) // Not an error, just not available
+      // Check both context availability AND that provider is actually initialized
+      if (!isAIAvailable || !aiService.isAvailable()) {
+        setError(null) // Not an error, just not available yet
         return
       }
 
@@ -130,9 +132,17 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
   )
 
   // Auto-fetch on mount if AI is available
+  // Small delay to ensure provider is fully initialized after settings load
   useEffect(() => {
-    if (isAIAvailable && tasks.length > 0) {
+    if (!isAIAvailable || tasks.length === 0) {
+      return
+    }
+    // Defer to next tick to ensure AI provider is initialized
+    const timer = setTimeout(() => {
       void refresh()
+    }, 50)
+    return (): void => {
+      clearTimeout(timer)
     }
   }, [isAIAvailable, tasks.length, refresh])
 
