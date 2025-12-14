@@ -23,6 +23,7 @@ export const settingsSchema = z.object({
   theme: themeSchema,
   defaultContext: taskContextSchema,
   defaultEnergy: taskEnergySchema,
+  updatedAt: z.string().optional(), // ISO date string for sync conflict resolution
 })
 
 export type Settings = z.infer<typeof settingsSchema>

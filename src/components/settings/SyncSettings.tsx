@@ -1,4 +1,5 @@
 import { type ReactElement, useState, useCallback } from 'react'
+import { createLogger } from '@/lib/logger'
 import { useSyncStatus } from '@/hooks/useSyncStatus'
 import { useInviteLink } from '@/hooks/useInviteLink'
 import { Button } from '@/components/ui/Button'
@@ -54,9 +55,16 @@ export function SyncSettings({ className = '' }: SyncSettingsProps): ReactElemen
   const handleCreateSpace = useCallback((): void => {
     const { password: newPassword } = createSpace()
     setPassword(newPassword)
-    enableSync()
-    setWantsSyncEnabled(false)
-  }, [createSpace, enableSync])
+    try {
+      enableSync()
+      // Only hide setup if sync actually enabled
+      if (spaceId !== null) {
+        setWantsSyncEnabled(false)
+      }
+    } catch (err) {
+      createLogger('SyncSettings').error('Failed to enable sync:', err)
+    }
+  }, [createSpace, enableSync, spaceId])
 
   // Handle joining existing space
   const handleJoinSpace = useCallback(

@@ -2,14 +2,18 @@ import { resolve } from 'path'
 import { defineConfig } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
+import basicSsl from '@vitejs/plugin-basic-ssl'
 import { VitePWA } from 'vite-plugin-pwa'
 import { devLoggerPlugin } from './vite-plugin-dev-logger'
+import { signalingPlugin } from './vite-plugin-signaling'
 
 export default defineConfig({
   plugins: [
     react(),
     tailwindcss(),
+    basicSsl(), // Enable HTTPS for LAN testing (Web Crypto API requires secure context)
     devLoggerPlugin(),
+    signalingPlugin(),
     VitePWA({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],

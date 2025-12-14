@@ -16,6 +16,7 @@ const DEFAULT_SETTINGS: Settings = {
   theme: 'system',
   defaultContext: 'computer',
   defaultEnergy: 'medium',
+  updatedAt: new Date().toISOString(),
 }
 
 export class HarmonyDatabase extends Dexie {

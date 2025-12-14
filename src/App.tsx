@@ -15,6 +15,7 @@ import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
 import { useAI } from '@/hooks/useAI'
 import { useBackgroundAI } from '@/hooks/useBackgroundAI'
+import { getDeviceId } from '@/lib/sync'
 
 function AppContent(): ReactElement {
   const { db, isLoading: isDbLoading, error: dbError } = useDatabaseContext()
@@ -149,6 +150,7 @@ function AppContent(): ReactElement {
         processingStatus: 'unprocessed',
         createdAt: now,
         updatedAt: now,
+        createdByDeviceId: getDeviceId(), // Only this device should process this thought
       })
     }
 

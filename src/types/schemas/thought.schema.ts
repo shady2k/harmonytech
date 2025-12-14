@@ -17,6 +17,7 @@ export const thoughtSchema = z.object({
   linkedTaskIds: z.array(z.string()),
   aiProcessed: z.boolean(),
   processingStatus: processingStatusSchema,
+  createdByDeviceId: z.string().optional(), // Device that created this thought (for sync)
 })
 
 export type Thought = z.infer<typeof thoughtSchema>

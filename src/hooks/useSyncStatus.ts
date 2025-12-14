@@ -1,7 +1,9 @@
 import { useState, useEffect, useCallback } from 'react'
+import { createLogger } from '@/lib/logger'
 import {
   getSyncProvider,
   isSyncConnected,
+  isSecureContext,
   initSyncProvider,
   disconnectSync,
   getSpaceId,
@@ -32,6 +34,8 @@ interface UseSyncStatusReturn extends SyncStatus {
   refreshStatus: () => void
   dismissVersionMismatch: () => void
 }
+
+const log = createLogger('SyncStatus')
 
 export function useSyncStatus(): UseSyncStatusReturn {
   const { db, isLoading: isDbLoading } = useDatabase()
@@ -91,7 +95,10 @@ export function useSyncStatus(): UseSyncStatusReturn {
 
   // Enable sync
   const enableSync = useCallback((): void => {
+    log.debug('enableSync called', { isDbLoading, hasDb: db !== null })
+
     if (isDbLoading || db === null) {
+      log.warn('Database not ready')
       setStatus((prev) => ({
         ...prev,
         syncError: 'Database not ready',
@@ -100,6 +107,7 @@ export function useSyncStatus(): UseSyncStatusReturn {
     }
 
     if (!hasDeviceName()) {
+      log.warn('Device name not set')
       setStatus((prev) => ({
         ...prev,
         syncError: 'Device name not set',
@@ -108,6 +116,7 @@ export function useSyncStatus(): UseSyncStatusReturn {
     }
 
     if (!hasSpaceConfig()) {
+      log.warn('Sync space not configured')
       setStatus((prev) => ({
         ...prev,
         syncError: 'Sync space not configured',
@@ -116,6 +125,7 @@ export function useSyncStatus(): UseSyncStatusReturn {
     }
 
     try {
+      log.info('Initializing sync provider...')
       // Initialize provider
       const provider = initSyncProvider()
 
@@ -135,6 +145,7 @@ export function useSyncStatus(): UseSyncStatusReturn {
       provider.on('status', handleStatus)
       provider.awareness.on('change', handleAwarenessChange)
 
+      log.info('Sync provider initialized successfully')
       setStatus((prev) => ({
         ...prev,
         isEnabled: true,
@@ -144,6 +155,7 @@ export function useSyncStatus(): UseSyncStatusReturn {
 
       refreshStatus()
     } catch (error) {
+      log.error('Failed to enable sync:', error)
       setStatus((prev) => ({
         ...prev,
         syncError: error instanceof Error ? error.message : 'Failed to enable sync',
@@ -218,6 +230,30 @@ export function useSyncStatus(): UseSyncStatusReturn {
       syncError: null,
     }))
   }, [])
+
+  // Auto-enable sync on mount if fully configured
+  useEffect(() => {
+    const hasName = hasDeviceName()
+    const hasSpace = hasSpaceConfig()
+    const secure = isSecureContext()
+    log.debug('Auto-enable check:', {
+      isDbLoading,
+      hasDb: db !== null,
+      hasName,
+      hasSpace,
+      secure,
+    })
+    if (!isDbLoading && db !== null && hasName && hasSpace && secure) {
+      log.info('Auto-enabling sync on mount')
+      enableSync()
+    } else if (!secure && hasName && hasSpace) {
+      log.warn('Skipping auto-enable: not in secure context (use localhost or HTTPS)')
+      setStatus((prev) => ({
+        ...prev,
+        syncError: 'P2P sync requires HTTPS or localhost access',
+      }))
+    }
+  }, [isDbLoading, db, enableSync])
 
   // Listen to online/offline events
   useEffect(() => {

@@ -8,6 +8,7 @@
 
 import { useEffect, useRef, useCallback, useState } from 'react'
 import { db } from '@/lib/dexie-database'
+import { getDeviceId } from '@/lib/sync'
 import { useSettingsStore } from '@/stores/settings.store'
 import { useAI } from './useAI'
 import { logger } from '@/lib/logger'
@@ -113,10 +114,15 @@ export function useBackgroundAI(): BackgroundAIState {
       setState((prev) => ({ ...prev, isProcessing: true }))
 
       try {
+        // Get current device ID - only process thoughts created by THIS device
+        const currentDeviceId = getDeviceId()
+
         // Find ONE thought that needs processing (queue handles serialization)
+        // Only process thoughts created by this device to prevent duplicate processing across synced devices
         const unprocessedThoughts = await db.thoughts
           .where('processingStatus')
           .anyOf(['unprocessed', 'failed'])
+          .filter((thought) => thought.createdByDeviceId === currentDeviceId)
           .limit(1)
           .toArray()
 
@@ -129,10 +135,11 @@ export function useBackgroundAI(): BackgroundAIState {
           return true
         })
 
-        // Count total pending for UI
+        // Count total pending for UI (only this device's thoughts)
         const totalPending = await db.thoughts
           .where('processingStatus')
           .anyOf(['unprocessed', 'failed'])
+          .filter((thought) => thought.createdByDeviceId === currentDeviceId)
           .count()
 
         setState((prev) => ({ ...prev, pendingCount: totalPending }))

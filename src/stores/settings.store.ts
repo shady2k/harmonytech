@@ -4,6 +4,9 @@ import type { TaskContext, TaskEnergy } from '@/types/task'
 import type { AIProviderType, Settings, Theme } from '@/types/settings'
 import type { HarmonyDatabase } from '@/lib/dexie-database'
 import { AI_CONFIDENCE_THRESHOLD } from '@/lib/constants/ai'
+import { createLogger } from '@/lib/logger'
+
+const log = createLogger('SettingsStore')
 
 // Use proxy in development to avoid CORS issues
 const YANDEX_TOKENIZE_URL = import.meta.env.DEV
@@ -254,8 +257,13 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
 
     set({ isSyncing: true })
 
+    const updatedAt = new Date().toISOString()
+    log.debug('syncToDatabase called', { aiProvider, updatedAt })
+
     try {
-      await db.settings.update('user-settings', {
+      // Use put for upsert - creates record if it doesn't exist
+      await db.settings.put({
+        id: 'user-settings',
         aiProvider,
         openRouterApiKey: apiKey ?? undefined,
         yandexApiKey: yandexApiKey ?? undefined,
@@ -267,8 +275,11 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
         theme,
         defaultContext,
         defaultEnergy,
+        updatedAt,
       })
-    } catch {
+      log.debug('syncToDatabase completed', { updatedAt })
+    } catch (err) {
+      log.error('syncToDatabase failed', err)
       throw new Error('Failed to sync settings to database')
     } finally {
       set({ isSyncing: false })

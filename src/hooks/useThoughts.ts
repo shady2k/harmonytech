@@ -1,6 +1,7 @@
 import { useCallback } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { db } from '@/lib/dexie-database'
+import { getDeviceId } from '@/lib/sync'
 import type { Thought } from '@/types/thought'
 import { thoughtSchema } from '@/types/thought'
 
@@ -39,6 +40,7 @@ export function useThoughts(): UseThoughtsReturn {
         aiProcessed: thoughtData.aiProcessed,
         createdAt: now,
         updatedAt: now,
+        createdByDeviceId: getDeviceId(), // Track which device created this thought
       }
 
       // Validate with Zod before inserting

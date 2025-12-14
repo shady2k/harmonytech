@@ -29,21 +29,15 @@ const STORAGE_KEYS = {
 }
 
 /**
- * Get signaling servers for WebRTC peer discovery
+ * Get signaling server URL
  *
- * In development, uses local signaling server on same host as the app.
- * This allows LAN testing - signaling server accessible via LAN IP.
- *
- * To run local signaling server: npm run signaling (listens on port 4444)
- * To run both dev server and signaling: npm run dev:all
+ * Uses /signaling on the same host as the app.
+ * Works for both dev (Vite plugin) and prod (server.js).
  */
 function getSignalingServers(): string[] {
-  if (import.meta.env.DEV) {
-    // Use same hostname as the app (works for localhost and LAN IPs)
-    const host = window.location.hostname
-    return [`ws://${host}:4444`]
-  }
-  return ['wss://signaling.yjs.dev']
+  const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:'
+  const host = window.location.host
+  return [`${protocol}//${host}/signaling`]
 }
 
 // =============================================================================
@@ -90,17 +84,39 @@ export function hasDeviceName(): boolean {
 // =============================================================================
 
 /**
+ * Generate a UUID (works in non-secure contexts like LAN HTTP)
+ */
+function generateUUID(): string {
+  // Use crypto.randomUUID if available (secure contexts)
+  if (typeof crypto.randomUUID === 'function') {
+    return crypto.randomUUID()
+  }
+  // Fallback for non-secure contexts (LAN HTTP access)
+  const bytes = new Uint8Array(16)
+  crypto.getRandomValues(bytes)
+  bytes[6] = (bytes[6] & 0x0f) | 0x40 // Version 4
+  bytes[8] = (bytes[8] & 0x3f) | 0x80 // Variant 1
+  const hex = Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('')
+  return `${hex.slice(0, 8)}-${hex.slice(8, 12)}-${hex.slice(12, 16)}-${hex.slice(16, 20)}-${hex.slice(20)}`
+}
+
+/**
  * Generate a new space ID (full UUID)
  */
 export function generateSpaceId(): string {
-  return `harmonytech-${crypto.randomUUID()}`
+  return `harmonytech-${generateUUID()}`
 }
 
 /**
  * Generate a random password for space encryption
+ * Uses alphanumeric characters for 128+ bits of entropy
  */
 export function generatePassword(): string {
-  return crypto.randomUUID().replace(/-/g, '').slice(0, 16)
+  const charset = 'ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789'
+  const length = 24 // ~143 bits of entropy with 62 char set
+  const bytes = new Uint8Array(length)
+  crypto.getRandomValues(bytes)
+  return Array.from(bytes, (byte) => charset[byte % charset.length]).join('')
 }
 
 /**
@@ -200,9 +216,23 @@ export function getProjectsMap(): Y.Map<unknown> {
   return getYDoc().getMap('projects')
 }
 
+/**
+ * Get shared Y.Map for settings
+ */
+export function getSettingsMap(): Y.Map<unknown> {
+  return getYDoc().getMap('settings')
+}
+
 // =============================================================================
 // WebRTC Provider Management
 // =============================================================================
+
+/**
+ * Check if Web Crypto API is available (requires secure context)
+ */
+export function isSecureContext(): boolean {
+  return typeof crypto !== 'undefined' && typeof crypto.subtle !== 'undefined'
+}
 
 /**
  * Initialize WebRTC provider for P2P sync
@@ -212,6 +242,14 @@ export function getProjectsMap(): Y.Map<unknown> {
 export function initSyncProvider(config?: Partial<SyncProviderConfig>): WebrtcProvider {
   if (webrtcProvider !== null) {
     return webrtcProvider
+  }
+
+  // Check for secure context (required for encryption)
+  if (!isSecureContext()) {
+    throw new Error(
+      'P2P sync requires a secure context (HTTPS or localhost). ' +
+        'Access the app via localhost or enable HTTPS.'
+    )
   }
 
   const spaceId = config?.spaceId ?? getSpaceId()
