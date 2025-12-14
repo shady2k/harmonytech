@@ -8,10 +8,8 @@ import { createLogger } from '@/lib/logger'
 
 const log = createLogger('SettingsStore')
 
-// Use proxy in development to avoid CORS issues
-const YANDEX_TOKENIZE_URL = import.meta.env.DEV
-  ? '/api/yandex-llm/foundationModels/v1/tokenize'
-  : 'https://llm.api.cloud.yandex.net/foundationModels/v1/tokenize'
+// Always use proxy to avoid CORS issues
+const YANDEX_TOKENIZE_URL = '/api/yandex-llm/foundationModels/v1/tokenize'
 
 interface SettingsState {
   // AI Provider settings

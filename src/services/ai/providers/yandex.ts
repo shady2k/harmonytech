@@ -16,20 +16,11 @@ import { logger } from '@/lib/logger'
 
 const log = logger.yandex
 
-// API endpoints - use proxy in development to avoid CORS issues
-const isDev = import.meta.env.DEV
-const YANDEX_GPT_URL = isDev
-  ? '/api/yandex-llm/foundationModels/v1/completion'
-  : 'https://llm.api.cloud.yandex.net/foundationModels/v1/completion'
-const YANDEX_STT_URL = isDev
-  ? '/api/yandex-stt/stt/v3/recognizeFileAsync'
-  : 'https://stt.api.cloud.yandex.net/stt/v3/recognizeFileAsync'
-const YANDEX_STT_RESULT_URL = isDev
-  ? '/api/yandex-stt/stt/v3/getRecognition'
-  : 'https://stt.api.cloud.yandex.net/stt/v3/getRecognition'
-const YANDEX_TOKENIZE_URL = isDev
-  ? '/api/yandex-llm/foundationModels/v1/tokenize'
-  : 'https://llm.api.cloud.yandex.net/foundationModels/v1/tokenize'
+// API endpoints - always use proxy to avoid CORS issues
+const YANDEX_GPT_URL = '/api/yandex-llm/foundationModels/v1/completion'
+const YANDEX_STT_URL = '/api/yandex-stt/stt/v3/recognizeFileAsync'
+const YANDEX_STT_RESULT_URL = '/api/yandex-stt/stt/v3/getRecognition'
+const YANDEX_TOKENIZE_URL = '/api/yandex-llm/foundationModels/v1/tokenize'
 
 // Polling configuration
 const STT_POLL_INTERVAL = 1000 // 1 second

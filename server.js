@@ -1,12 +1,13 @@
 /**
  * Production server for LAN deployment
  *
- * Serves static files + WebSocket signaling on the same port.
+ * Serves static files + WebSocket signaling + API proxy on the same port.
  * Run: node server.js
  * Access: http://<your-lan-ip>:3000
  */
 
 import { createServer } from 'http'
+import { request as httpsRequest } from 'https'
 import { readFileSync, existsSync } from 'fs'
 import { join, extname } from 'path'
 import { WebSocketServer } from 'ws'
@@ -32,8 +33,55 @@ const MIME_TYPES = {
   '.webmanifest': 'application/manifest+json',
 }
 
-// HTTP server for static files
+// Proxy configuration for external APIs (CORS bypass)
+const PROXY_ROUTES = {
+  '/api/yandex-llm': 'https://llm.api.cloud.yandex.net',
+  '/api/yandex-stt': 'https://stt.api.cloud.yandex.net',
+}
+
+/**
+ * Proxy request to external API
+ */
+function proxyRequest(req, res, targetBase, pathPrefix) {
+  const targetPath = req.url.replace(pathPrefix, '')
+  const targetUrl = new URL(targetPath, targetBase)
+
+  const proxyReq = httpsRequest(
+    {
+      hostname: targetUrl.hostname,
+      port: 443,
+      path: targetUrl.pathname + targetUrl.search,
+      method: req.method,
+      headers: {
+        ...req.headers,
+        host: targetUrl.hostname,
+      },
+    },
+    (proxyRes) => {
+      res.writeHead(proxyRes.statusCode, proxyRes.headers)
+      proxyRes.pipe(res)
+    }
+  )
+
+  proxyReq.on('error', (err) => {
+    console.error('Proxy error:', err.message)
+    res.writeHead(502)
+    res.end('Proxy error')
+  })
+
+  req.pipe(proxyReq)
+}
+
+// HTTP server for static files and API proxy
 const server = createServer((req, res) => {
+  // Check for proxy routes first
+  for (const [prefix, target] of Object.entries(PROXY_ROUTES)) {
+    if (req.url.startsWith(prefix)) {
+      return proxyRequest(req, res, target, prefix)
+    }
+  }
+
+  // Static file serving
   let filePath = join(DIST_DIR, req.url === '/' ? 'index.html' : req.url)
 
   // SPA fallback - serve index.html for non-file routes
@@ -122,6 +170,7 @@ server.listen(PORT, '0.0.0.0', () => {
   ──────────────────
   App:       http://localhost:${PORT}/
   Signaling: ws://localhost:${PORT}/signaling
+  Proxy:     /api/yandex-llm, /api/yandex-stt
 
   Access from LAN using your local IP address.
   `)
