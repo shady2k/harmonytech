@@ -10,12 +10,13 @@ export function TextCapture({ onSubmit }: TextCaptureProps): ReactElement {
   const textareaRef = useRef<HTMLTextAreaElement>(null)
   const { inputText, setInputText, setProcessingState } = useCaptureStore()
 
-  // Auto-resize textarea
+  // Auto-resize textarea with max height
   useEffect(() => {
     const textarea = textareaRef.current
     if (textarea !== null) {
       textarea.style.height = 'auto'
-      textarea.style.height = `${String(textarea.scrollHeight)}px`
+      const maxHeight = 300
+      textarea.style.height = `${String(Math.min(textarea.scrollHeight, maxHeight))}px`
     }
   }, [inputText])
 
@@ -52,7 +53,7 @@ export function TextCapture({ onSubmit }: TextCaptureProps): ReactElement {
         }}
         onKeyDown={handleKeyDown}
         placeholder="What's on your mind?"
-        className="min-h-[120px] w-full resize-none rounded-lg border border-gray-200 bg-white p-4 text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
+        className="min-h-[120px] max-h-[300px] w-full resize-none overflow-y-auto rounded-lg border border-gray-200 bg-white p-4 text-gray-900 placeholder-gray-400 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500/20 dark:border-gray-700 dark:bg-gray-800 dark:text-white dark:placeholder-gray-500"
         rows={4}
       />
       <div className="flex items-center justify-between">

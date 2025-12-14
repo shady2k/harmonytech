@@ -110,7 +110,7 @@ export function CaptureModal({ isOpen, onClose, onSave }: CaptureModalProps): Re
 
       {/* Modal */}
       <div
-        className="relative w-full max-w-lg rounded-t-2xl bg-white p-6 shadow-xl dark:bg-gray-900 md:rounded-2xl"
+        className="relative flex max-h-[90vh] w-full max-w-lg flex-col rounded-t-2xl bg-white p-6 shadow-xl dark:bg-gray-900 md:rounded-2xl"
         role="dialog"
         aria-modal="true"
         aria-labelledby="capture-modal-title"
@@ -135,7 +135,7 @@ export function CaptureModal({ isOpen, onClose, onSave }: CaptureModalProps): Re
         </div>
 
         {/* Content */}
-        {renderContent()}
+        <div className="min-h-0 flex-1 overflow-y-auto">{renderContent()}</div>
       </div>
     </div>
   )

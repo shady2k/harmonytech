@@ -71,7 +71,6 @@ async function convertToWav(audioBlob: Blob): Promise<Blob> {
 
 export async function processVoiceRecording(
   audioBlob: Blob,
-  _apiKey: string, // Kept for backwards compatibility, but not used
   model: string
 ): Promise<VoiceProcessingResult> {
   // Check if AI service is available

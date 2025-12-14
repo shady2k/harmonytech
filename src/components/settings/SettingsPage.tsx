@@ -3,6 +3,7 @@ import { Card } from '@/components/ui/Card'
 import { ApiKeySetup } from './ApiKeySetup'
 import { YandexSettings } from './YandexSettings'
 import { SyncSettings } from './SyncSettings'
+import { DataManagement } from './DataManagement'
 import { ThemeToggle } from './ThemeToggle'
 import { useSettingsStore } from '@/stores'
 import { useDatabase } from '@/hooks'
@@ -109,6 +110,11 @@ export function SettingsPage({ className = '' }: SettingsPageProps): ReactElemen
       {/* Sync Settings */}
       <section>
         <SyncSettings />
+      </section>
+
+      {/* Data Management */}
+      <section>
+        <DataManagement />
       </section>
 
       {/* Display Settings */}

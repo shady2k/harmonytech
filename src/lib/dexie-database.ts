@@ -11,7 +11,7 @@ import type { Project } from '@/types/project'
 import type { VoiceRecording } from '@/types/voice-recording'
 
 // Default settings created once when database is first created
-const DEFAULT_SETTINGS: Settings = {
+export const DEFAULT_SETTINGS: Settings = {
   id: 'user-settings',
   theme: 'system',
   defaultContext: 'computer',

@@ -56,7 +56,6 @@ export function useAI(): UseAIReturn {
   const [error, setError] = useState<string | null>(null)
 
   const {
-    apiKey,
     textModel,
     voiceModel,
     isApiKeyValid,
@@ -115,8 +114,8 @@ export function useAI(): UseAIReturn {
 
   const processVoice = useCallback(
     async (audioBlob: Blob): Promise<VoiceProcessingResult> => {
-      if (apiKey === null || apiKey === '') {
-        throw new Error('API key not configured')
+      if (!isAIAvailable) {
+        throw new Error('AI service not configured')
       }
 
       if (voiceModel === null || voiceModel === '') {
@@ -127,7 +126,7 @@ export function useAI(): UseAIReturn {
       setError(null)
 
       try {
-        const result = await processVoiceRecording(audioBlob, apiKey, voiceModel)
+        const result = await processVoiceRecording(audioBlob, voiceModel)
         return result
       } catch (err) {
         const message = err instanceof Error ? err.message : 'Failed to process voice'
@@ -137,7 +136,7 @@ export function useAI(): UseAIReturn {
         setIsProcessing(false)
       }
     },
-    [apiKey, voiceModel]
+    [isAIAvailable, voiceModel]
   )
 
   const suggestTaskProperties = useCallback(
