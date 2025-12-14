@@ -6,6 +6,7 @@ import { ContextBadge } from '@/components/ui/ContextBadge'
 import { EnergyIndicator } from '@/components/ui/EnergyIndicator'
 import { CONTEXT_CONFIG } from '@/lib/context-config'
 import { ENERGY_CONFIG } from '@/lib/energy-config'
+import { formatDateTime } from '@/lib/date-utils'
 import { ProjectSelector } from './ProjectSelector'
 import { RecurrenceEditor } from './RecurrenceEditor'
 import { getRecurrenceDescription } from '@/services/recurrence'
@@ -93,16 +94,6 @@ export function TaskDetail({
   const handleCancel = (): void => {
     setEditedTask(task)
     setIsEditing(false)
-  }
-
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
   }
 
   return (
@@ -258,7 +249,7 @@ export function TaskDetail({
               />
             ) : (
               <p className="text-gray-900 dark:text-white">
-                {task.deadline !== undefined ? formatDate(task.deadline) : 'No deadline'}
+                {task.deadline !== undefined ? formatDateTime(task.deadline) : 'No deadline'}
               </p>
             )}
           </div>
@@ -284,7 +275,7 @@ export function TaskDetail({
             ) : (
               <p className="text-gray-900 dark:text-white">
                 {task.scheduledStart !== undefined
-                  ? formatDate(task.scheduledStart)
+                  ? formatDateTime(task.scheduledStart)
                   : 'Not scheduled'}
               </p>
             )}
@@ -310,7 +301,7 @@ export function TaskDetail({
               />
             ) : (
               <p className="text-gray-900 dark:text-white">
-                {task.scheduledEnd !== undefined ? formatDate(task.scheduledEnd) : 'Not set'}
+                {task.scheduledEnd !== undefined ? formatDateTime(task.scheduledEnd) : 'Not set'}
               </p>
             )}
           </div>
@@ -392,14 +383,14 @@ export function TaskDetail({
           {/* Metadata */}
           <div className="border-t border-gray-200 pt-4 dark:border-gray-700">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Created: {formatDate(task.createdAt)}
+              Created: {formatDateTime(task.createdAt)}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Updated: {formatDate(task.updatedAt)}
+              Updated: {formatDateTime(task.updatedAt)}
             </p>
             {task.isCompleted && task.completedAt !== undefined && (
               <p className="text-xs text-green-600 dark:text-green-400">
-                Completed: {formatDate(task.completedAt)}
+                Completed: {formatDateTime(task.completedAt)}
               </p>
             )}
           </div>

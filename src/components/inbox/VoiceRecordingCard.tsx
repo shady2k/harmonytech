@@ -1,6 +1,7 @@
 import { useState, type ReactElement } from 'react'
 import { db } from '@/lib/dexie-database'
 import type { VoiceRecording } from '@/types/voice-recording'
+import { formatTimeAgo } from '@/lib/date-utils'
 
 interface VoiceRecordingCardProps {
   recording: VoiceRecording
@@ -41,20 +42,6 @@ export function VoiceRecordingCard({ recording }: VoiceRecordingCardProps): Reac
     }
   }
 
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const minutes = Math.floor(diff / 60000)
-    const hours = Math.floor(diff / 3600000)
-    const days = Math.floor(diff / 86400000)
-
-    if (minutes < 1) return 'just now'
-    if (minutes < 60) return `${String(minutes)}m ago`
-    if (hours < 24) return `${String(hours)}h ago`
-    return `${String(days)}d ago`
-  }
-
   const getStatusText = (): string => {
     if (recording.status === 'pending') return 'Waiting to transcribe...'
     if (recording.status === 'transcribing') return 'Transcribing...'
@@ -83,7 +70,7 @@ export function VoiceRecordingCard({ recording }: VoiceRecordingCardProps): Reac
           </div>
 
           <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <span>{formatDate(recording.createdAt)}</span>
+            <span>{formatTimeAgo(recording.createdAt)}</span>
             <span>&#183;</span>
             {isTranscribing ? (
               <span className="text-indigo-600 dark:text-indigo-400">{getStatusText()}</span>

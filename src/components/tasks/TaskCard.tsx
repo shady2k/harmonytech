@@ -3,6 +3,7 @@ import type { Task } from '@/types/task'
 import { Card } from '@/components/ui/Card'
 import { ContextBadge } from '@/components/ui/ContextBadge'
 import { EnergyIndicator } from '@/components/ui/EnergyIndicator'
+import { formatDeadline, formatScheduledDate, isOverdue } from '@/lib/date-utils'
 
 interface TaskCardProps {
   task: Task
@@ -23,53 +24,6 @@ function formatTimeEstimate(minutes: number): string {
     return `${String(hours)}h`
   }
   return `${String(hours)}h ${String(remainingMinutes)}m`
-}
-
-function formatDeadline(deadline: string): string {
-  const date = new Date(deadline)
-  const now = new Date()
-  const diffTime = date.getTime() - now.getTime()
-  const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24))
-
-  if (diffDays < 0) {
-    return 'Overdue'
-  }
-  if (diffDays === 0) {
-    return 'Today'
-  }
-  if (diffDays === 1) {
-    return 'Tomorrow'
-  }
-  if (diffDays <= 7) {
-    return `${String(diffDays)} days`
-  }
-  return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })
-}
-
-function isOverdue(deadline: string): boolean {
-  return new Date(deadline) < new Date()
-}
-
-function formatScheduledDate(dateStr: string): string {
-  const date = new Date(dateStr)
-  const now = new Date()
-  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate())
-  const tomorrow = new Date(today.getTime() + 24 * 60 * 60 * 1000)
-  const dateOnly = new Date(date.getFullYear(), date.getMonth(), date.getDate())
-
-  const timeStr = date.toLocaleTimeString('en-US', {
-    hour: 'numeric',
-    minute: '2-digit',
-    hour12: true,
-  })
-
-  if (dateOnly.getTime() === today.getTime()) {
-    return `Today ${timeStr}`
-  }
-  if (dateOnly.getTime() === tomorrow.getTime()) {
-    return `Tomorrow ${timeStr}`
-  }
-  return `${date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' })} ${timeStr}`
 }
 
 export function TaskCard({

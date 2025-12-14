@@ -2,6 +2,7 @@ import { useState, type ReactElement } from 'react'
 import { db } from '@/lib/dexie-database'
 import { trackEvent, AnalyticsEvents } from '@/lib/analytics'
 import type { Thought } from '@/types/thought'
+import { formatTimeAgo } from '@/lib/date-utils'
 
 interface QuickProcessCardProps {
   thought: Thought
@@ -86,20 +87,6 @@ export function QuickProcessCard({ thought }: QuickProcessCardProps): ReactEleme
     }
   }
 
-  const formatDate = (dateString: string): string => {
-    const date = new Date(dateString)
-    const now = new Date()
-    const diff = now.getTime() - date.getTime()
-    const minutes = Math.floor(diff / 60000)
-    const hours = Math.floor(diff / 3600000)
-    const days = Math.floor(diff / 86400000)
-
-    if (minutes < 1) return 'just now'
-    if (minutes < 60) return `${String(minutes)}m ago`
-    if (hours < 24) return `${String(hours)}h ago`
-    return `${String(days)}d ago`
-  }
-
   return (
     <div
       className={`rounded-lg border bg-white p-4 transition-all dark:bg-gray-800 ${
@@ -115,7 +102,7 @@ export function QuickProcessCard({ thought }: QuickProcessCardProps): ReactEleme
           <p className="text-gray-900 dark:text-gray-100">{thought.content}</p>
 
           <div className="mt-2 flex items-center gap-2 text-xs text-gray-500 dark:text-gray-400">
-            <span>{formatDate(thought.createdAt)}</span>
+            <span>{formatTimeAgo(thought.createdAt)}</span>
             {thought.linkedTaskIds.length > 0 && (
               <>
                 <span>&#183;</span>

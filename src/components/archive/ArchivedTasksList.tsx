@@ -7,6 +7,7 @@ import { Button } from '@/components/ui/Button'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { ContextBadge } from '@/components/ui/ContextBadge'
+import { formatDateTime } from '@/lib/date-utils'
 
 interface ArchivedTasksListProps {
   className?: string
@@ -51,16 +52,6 @@ function groupTasksByDate(tasks: Task[]): TaskGroup[] {
 
   // Filter out empty groups
   return groups.filter((group) => group.tasks.length > 0)
-}
-
-function formatCompletedDate(dateString: string): string {
-  const date = new Date(dateString)
-  return date.toLocaleDateString('en-US', {
-    month: 'short',
-    day: 'numeric',
-    hour: '2-digit',
-    minute: '2-digit',
-  })
 }
 
 export function ArchivedTasksList({ className = '' }: ArchivedTasksListProps): ReactElement {
@@ -194,7 +185,7 @@ export function ArchivedTasksList({ className = '' }: ArchivedTasksListProps): R
                           )}
                           {task.completedAt !== undefined && (
                             <span className="text-xs text-gray-400 dark:text-gray-500">
-                              {formatCompletedDate(task.completedAt)}
+                              {formatDateTime(task.completedAt)}
                             </span>
                           )}
                         </div>

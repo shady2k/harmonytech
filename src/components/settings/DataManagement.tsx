@@ -246,22 +246,20 @@ export function DataManagement({ className = '' }: DataManagementProps): ReactEl
             {confirmAction !== 'clear-user' && confirmAction !== 'clear-all' && (
               <div className="flex flex-wrap gap-2">
                 <Button
-                  variant="ghost"
+                  variant="danger-outline"
                   onClick={(): void => {
                     setConfirmAction('clear-user')
                   }}
                   disabled={isOperationInProgress}
-                  className="text-red-600 hover:text-red-700 dark:text-red-400"
                 >
                   Clear Tasks, Thoughts & Projects
                 </Button>
                 <Button
-                  variant="ghost"
+                  variant="danger-outline"
                   onClick={(): void => {
                     setConfirmAction('clear-all')
                   }}
                   disabled={isOperationInProgress}
-                  className="text-red-600 hover:text-red-700 dark:text-red-400"
                 >
                   Clear All Data
                 </Button>

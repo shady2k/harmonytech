@@ -3,6 +3,8 @@ import type { Thought } from '@/types/thought'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { ProjectSelector } from '@/components/tasks/ProjectSelector'
+import { AudioPlayer } from './AudioPlayer'
+import { formatDateTime } from '@/lib/date-utils'
 
 interface ThoughtDetailProps {
   thought: Thought
@@ -86,16 +88,6 @@ export function ThoughtDetail({
       e.preventDefault()
       handleAddTag()
     }
-  }
-
-  const formatDate = (dateString: string): string => {
-    return new Date(dateString).toLocaleDateString('en-US', {
-      year: 'numeric',
-      month: 'short',
-      day: 'numeric',
-      hour: '2-digit',
-      minute: '2-digit',
-    })
   }
 
   return (
@@ -235,33 +227,23 @@ export function ThoughtDetail({
             )}
           </div>
 
-          {/* Source Recording */}
+          {/* Source Recording with Audio Player */}
           {thought.sourceRecordingId !== undefined && (
             <div>
               <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
-                Source
+                Voice Recording
               </label>
-              <p className="flex items-center gap-2 text-sm text-gray-600 dark:text-gray-400">
-                <svg className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                  <path
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                    strokeWidth={2}
-                    d="M19 11a7 7 0 01-7 7m0 0a7 7 0 01-7-7m7 7v4m0 0H8m4 0h4m-4-8a3 3 0 01-3-3V5a3 3 0 116 0v6a3 3 0 01-3 3z"
-                  />
-                </svg>
-                From voice recording
-              </p>
+              <AudioPlayer recordingId={thought.sourceRecordingId} />
             </div>
           )}
 
           {/* Metadata */}
           <div className="border-t border-gray-200 pt-4 dark:border-gray-700">
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Created: {formatDate(thought.createdAt)}
+              Created: {formatDateTime(thought.createdAt)}
             </p>
             <p className="text-xs text-gray-500 dark:text-gray-400">
-              Updated: {formatDate(thought.updatedAt)}
+              Updated: {formatDateTime(thought.updatedAt)}
             </p>
           </div>
         </div>
@@ -327,7 +309,7 @@ export function ThoughtDetail({
                     onConvertToTask(thought)
                   }}
                 >
-                  Convert to Task
+                  Create related task
                 </Button>
               )}
             </div>

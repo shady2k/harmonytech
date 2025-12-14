@@ -8,6 +8,7 @@ import { InboxAlertBanner } from '@/components/inbox/InboxAlertBanner'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
+import { formatShortDate } from '@/lib/date-utils'
 import type { TaskContext, TaskEnergy } from '@/types/task'
 
 interface WhatToDoNextProps {
@@ -127,7 +128,7 @@ export function WhatToDoNext({ className = '' }: WhatToDoNextProps): ReactElemen
                     {thought.content}
                   </p>
                   <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                    {new Date(thought.createdAt).toLocaleDateString()}
+                    {formatShortDate(thought.createdAt)}
                   </p>
                 </button>
               </Card>
@@ -151,7 +152,7 @@ export function WhatToDoNext({ className = '' }: WhatToDoNextProps): ReactElemen
                     {thought.content}
                   </p>
                   <p className="mt-1 text-xs text-gray-400 dark:text-gray-500">
-                    {new Date(thought.createdAt).toLocaleDateString()}
+                    {formatShortDate(thought.createdAt)}
                   </p>
                 </button>
               </Card>

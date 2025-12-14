@@ -7,6 +7,7 @@ import { ConvertToTaskFlow } from './ConvertToTaskFlow'
 import { EmptyState } from '@/components/ui/EmptyState'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { Input } from '@/components/ui/Input'
+import { SlideOverPanel } from '@/components/ui/SlideOverPanel'
 import { useUIStore } from '@/stores/ui.store'
 
 interface ThoughtsListProps {
@@ -33,17 +34,6 @@ export function ThoughtsList({ className = '' }: ThoughtsListProps): ReactElemen
     setSelectedThoughtId(id)
   }, [])
 
-  const handleConvertToTask = useCallback(
-    (id: string): void => {
-      const thought = thoughts.find((t) => t.id === id)
-      if (thought !== undefined) {
-        setConvertingThought(thought)
-        setSelectedThoughtId(null)
-      }
-    },
-    [thoughts]
-  )
-
   const handleConvertFromDetail = useCallback((thought: Thought): void => {
     setConvertingThought(thought)
     setSelectedThoughtId(null)
@@ -63,15 +53,9 @@ export function ThoughtsList({ className = '' }: ThoughtsListProps): ReactElemen
     [deleteThought]
   )
 
-  const handleConversionComplete = useCallback(
-    async (_taskId: string, shouldDeleteThought: boolean): Promise<void> => {
-      if (shouldDeleteThought && convertingThought !== null) {
-        await deleteThought(convertingThought.id)
-      }
-      setConvertingThought(null)
-    },
-    [convertingThought, deleteThought]
-  )
+  const handleConversionComplete = useCallback((): void => {
+    setConvertingThought(null)
+  }, [])
 
   const handleConversionCancel = useCallback((): void => {
     setConvertingThought(null)
@@ -167,32 +151,25 @@ export function ThoughtsList({ className = '' }: ThoughtsListProps): ReactElemen
           ) : (
             <div className="space-y-3 p-4">
               {filteredThoughts.map((thought) => (
-                <ThoughtCard
-                  key={thought.id}
-                  thought={thought}
-                  onClick={handleThoughtClick}
-                  onConvertToTask={handleConvertToTask}
-                />
+                <ThoughtCard key={thought.id} thought={thought} onClick={handleThoughtClick} />
               ))}
             </div>
           )}
         </div>
       </div>
 
-      {/* Thought detail panel */}
-      {selectedThought !== null && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 p-4 md:static md:w-96 md:bg-transparent md:p-0">
-          <div className="h-full max-h-[90vh] w-full max-w-lg overflow-hidden rounded-xl bg-white shadow-xl dark:bg-gray-900 md:max-h-full md:max-w-none md:rounded-none md:border-l md:border-gray-200 md:shadow-none md:dark:border-gray-700">
-            <ThoughtDetail
-              thought={selectedThought}
-              onUpdate={handleUpdate}
-              onDelete={handleDelete}
-              onClose={clearSelection}
-              onConvertToTask={handleConvertFromDetail}
-            />
-          </div>
-        </div>
-      )}
+      {/* Thought detail slide panel */}
+      <SlideOverPanel isOpen={selectedThought !== null} onClose={clearSelection}>
+        {selectedThought !== null && (
+          <ThoughtDetail
+            thought={selectedThought}
+            onUpdate={handleUpdate}
+            onDelete={handleDelete}
+            onClose={clearSelection}
+            onConvertToTask={handleConvertFromDetail}
+          />
+        )}
+      </SlideOverPanel>
 
       {/* Convert to task modal */}
       {convertingThought !== null && (
@@ -200,9 +177,7 @@ export function ThoughtsList({ className = '' }: ThoughtsListProps): ReactElemen
           <div className="w-full max-w-lg overflow-hidden rounded-xl bg-white p-6 shadow-xl dark:bg-gray-900">
             <ConvertToTaskFlow
               thought={convertingThought}
-              onComplete={(taskId, deleteThought): void => {
-                void handleConversionComplete(taskId, deleteThought)
-              }}
+              onComplete={handleConversionComplete}
               onCancel={handleConversionCancel}
             />
           </div>

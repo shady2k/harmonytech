@@ -9,7 +9,7 @@ import { PropertySuggestion } from '@/components/capture/PropertySuggestion'
 
 interface ConvertToTaskFlowProps {
   thought: Thought
-  onComplete: (taskId: string, deleteThought: boolean) => void
+  onComplete: (taskId: string) => void
   onCancel: () => void
 }
 
@@ -70,7 +70,6 @@ export function ConvertToTaskFlow({
 
   const [step, setStep] = useState<ProcessingStep>('idle')
   const [taskDraft, setTaskDraft] = useState<TaskDraft | null>(null)
-  const [deleteThoughtAfter, setDeleteThoughtAfter] = useState(true)
   const [error, setError] = useState<string | null>(null)
 
   // Start without AI - go directly to review with default values
@@ -161,7 +160,7 @@ export function ConvertToTaskFlow({
       } as Omit<Task, 'id' | 'createdAt' | 'updatedAt'>)
 
       setStep('done')
-      onComplete(newTask.id, deleteThoughtAfter)
+      onComplete(newTask.id)
     } catch (err) {
       setError(err instanceof Error ? err.message : 'Failed to save task')
       setStep('error')
@@ -195,7 +194,9 @@ export function ConvertToTaskFlow({
               />
             </svg>
           </div>
-          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">Convert to Task</h3>
+          <h3 className="text-lg font-semibold text-gray-900 dark:text-white">
+            Create Related Task
+          </h3>
           <p className="mt-2 text-sm text-gray-600 dark:text-gray-400">
             {isAIAvailable
               ? 'AI will analyze this thought and suggest task properties.'
@@ -354,22 +355,6 @@ export function ConvertToTaskFlow({
               updateDraftProperty('timeEstimate', value)
             }}
           />
-        </div>
-
-        {/* Delete thought checkbox */}
-        <div className="flex items-center gap-3 rounded-lg border border-gray-200 bg-gray-50 p-4 dark:border-gray-700 dark:bg-gray-800/50">
-          <input
-            type="checkbox"
-            id="delete-thought"
-            checked={deleteThoughtAfter}
-            onChange={(e): void => {
-              setDeleteThoughtAfter(e.target.checked)
-            }}
-            className="h-4 w-4 rounded border-gray-300 text-indigo-600 focus:ring-indigo-500 dark:border-gray-600 dark:bg-gray-700"
-          />
-          <label htmlFor="delete-thought" className="text-sm text-gray-700 dark:text-gray-300">
-            Delete original thought after conversion
-          </label>
         </div>
 
         {/* Actions */}
