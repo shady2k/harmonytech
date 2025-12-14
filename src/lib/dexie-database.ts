@@ -10,6 +10,14 @@ import type { Settings } from '@/types/settings'
 import type { Project } from '@/types/project'
 import type { VoiceRecording } from '@/types/voice-recording'
 
+// Default settings created once when database is first created
+const DEFAULT_SETTINGS: Settings = {
+  id: 'user-settings',
+  theme: 'system',
+  defaultContext: 'computer',
+  defaultEnergy: 'medium',
+}
+
 export class HarmonyDatabase extends Dexie {
   tasks!: EntityTable<Task, 'id'>
   thoughts!: EntityTable<Thought, 'id'>
@@ -27,6 +35,11 @@ export class HarmonyDatabase extends Dexie {
       settings: 'id',
       projects: 'id, name, isActive, createdAt',
       voiceRecordings: 'id, createdAt',
+    })
+
+    // Seed default settings when database is first created (runs exactly once)
+    this.on('populate', () => {
+      void this.settings.add(DEFAULT_SETTINGS)
     })
   }
 }

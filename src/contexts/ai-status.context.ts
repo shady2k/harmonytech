@@ -3,7 +3,7 @@ import type { AIProviderType } from '@/types/settings'
 
 export interface AIStatusContextValue {
   isAIAvailable: boolean
-  aiProvider: AIProviderType
+  aiProvider: AIProviderType | undefined
   aiError: string | null
 }
 

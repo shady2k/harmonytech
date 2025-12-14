@@ -10,6 +10,7 @@ export function AIStatusIndicator(): ReactElement {
   const { apiKey, yandexApiKey, yandexFolderId } = useSettingsStore()
 
   const getStatus = (): AIStatus => {
+    if (aiProvider === undefined) return 'not-configured'
     if (aiProvider === 'openrouter') {
       if (apiKey === null || apiKey === '') return 'not-configured'
       return isAIAvailable ? 'connected' : 'disconnected'
@@ -28,6 +29,7 @@ export function AIStatusIndicator(): ReactElement {
   const status = getStatus()
 
   const getProviderLabel = (): string => {
+    if (aiProvider === undefined) return 'AI'
     return aiProvider === 'openrouter' ? 'OpenRouter' : 'Yandex'
   }
 

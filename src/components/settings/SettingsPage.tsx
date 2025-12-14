@@ -96,7 +96,13 @@ export function SettingsPage({ className = '' }: SettingsPageProps): ReactElemen
           </div>
 
           {/* Provider-specific settings */}
-          {aiProvider === 'openrouter' ? <ApiKeySetup /> : <YandexSettings />}
+          {aiProvider === 'openrouter' && <ApiKeySetup />}
+          {aiProvider === 'yandex' && <YandexSettings />}
+          {aiProvider === undefined && (
+            <p className="text-sm text-gray-500 dark:text-gray-400">
+              Select an AI provider above to configure it.
+            </p>
+          )}
         </Card>
       </section>
 

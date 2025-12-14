@@ -1,6 +1,12 @@
-import React, { createContext, useContext, useEffect, useState, type ReactNode } from 'react'
+import React, {
+  createContext,
+  useContext,
+  useEffect,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { db, type HarmonyDatabase } from '@/lib/dexie-database'
-import { settingsSchema } from '@/types/settings'
 import { logger } from '@/lib/logger'
 
 const log = logger.db
@@ -28,15 +34,18 @@ interface DatabaseProviderProps {
 export function DatabaseProvider({ children }: DatabaseProviderProps): React.JSX.Element {
   const [isLoading, setIsLoading] = useState(true)
   const [error, setError] = useState<Error | null>(null)
+  const isMountedRef = useRef(true)
 
   // Initialize database on startup
   useEffect(() => {
+    isMountedRef.current = true
+
     const initDatabase = async (): Promise<void> => {
       try {
-        setIsLoading(true)
-        setError(null)
+        // Open database (triggers populate hook on first creation)
+        await db.open()
 
-        // 1. Clean up stuck 'processing' thoughts from previous session
+        // Clean up stuck 'processing' thoughts from previous session
         // These can happen if the app crashed or was closed mid-processing
         const stuckThoughts = await db.thoughts
           .where('processingStatus')
@@ -51,26 +60,26 @@ export function DatabaseProvider({ children }: DatabaseProviderProps): React.JSX
             .modify({ processingStatus: 'unprocessed', updatedAt: new Date().toISOString() })
         }
 
-        // 2. Check if settings exist, create default if not
-        const existingSettings = await db.settings.get('user-settings')
-        if (!existingSettings) {
-          const defaultSettings = settingsSchema.parse({
-            id: 'user-settings',
-            aiProvider: 'openrouter',
-            theme: 'system',
-            defaultContext: 'computer',
-            defaultEnergy: 'medium',
-          })
-          await db.settings.add(defaultSettings)
+        // Only update state if still mounted (prevents StrictMode warnings)
+        if (isMountedRef.current) {
+          setIsLoading(false)
         }
       } catch (err) {
-        setError(err instanceof Error ? err : new Error('Failed to initialize database'))
-      } finally {
-        setIsLoading(false)
+        const error = err instanceof Error ? err : new Error('Failed to initialize database')
+        log.error('Database initialization failed', { error: error.message })
+
+        if (isMountedRef.current) {
+          setError(error)
+          setIsLoading(false)
+        }
       }
     }
 
     void initDatabase()
+
+    return (): void => {
+      isMountedRef.current = false
+    }
   }, [])
 
   // Database error

@@ -61,9 +61,15 @@ export function Sidebar({ activeView, onViewChange, onCaptureClick }: SidebarPro
         </nav>
 
         {/* AI Status Indicator */}
-        <div className="border-t border-gray-200 p-4 dark:border-gray-800">
+        <button
+          type="button"
+          onClick={() => {
+            onViewChange('settings')
+          }}
+          className="w-full cursor-pointer border-t border-gray-200 p-4 text-left transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
+        >
           <AIStatusIndicator />
-        </div>
+        </button>
       </div>
     </aside>
   )

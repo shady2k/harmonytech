@@ -12,7 +12,7 @@ export type AIProviderType = z.infer<typeof aiProviderSchema>
 
 export const settingsSchema = z.object({
   id: z.string(), // Always "user-settings"
-  aiProvider: aiProviderSchema,
+  aiProvider: aiProviderSchema.optional(), // User must explicitly choose
   openRouterApiKey: z.string().optional(),
   yandexApiKey: z.string().optional(),
   yandexFolderId: z.string().optional(),

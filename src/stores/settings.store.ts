@@ -12,7 +12,7 @@ const YANDEX_TOKENIZE_URL = import.meta.env.DEV
 
 interface SettingsState {
   // AI Provider settings
-  aiProvider: AIProviderType
+  aiProvider: AIProviderType | undefined // User must explicitly choose
   apiKey: string | null // OpenRouter API key
   yandexApiKey: string | null
   yandexFolderId: string | null
@@ -67,7 +67,7 @@ interface SettingsActions {
 }
 
 const initialState: SettingsState = {
-  aiProvider: 'openrouter',
+  aiProvider: undefined,
   apiKey: null,
   yandexApiKey: null,
   yandexFolderId: null,
@@ -114,11 +114,17 @@ export const useSettingsStore = create<SettingsState & SettingsActions>((set, ge
 
   getActiveApiKey: (): string | null => {
     const { aiProvider, apiKey, yandexApiKey } = get()
+    if (aiProvider === undefined) return null
     return aiProvider === 'openrouter' ? apiKey : yandexApiKey
   },
 
   validateApiKey: async (): Promise<boolean> => {
     const { aiProvider, apiKey, yandexApiKey, yandexFolderId } = get()
+
+    if (aiProvider === undefined) {
+      set({ isApiKeyValid: false })
+      return false
+    }
 
     const activeKey = aiProvider === 'openrouter' ? apiKey : yandexApiKey
     if (activeKey === null || activeKey === '') {
