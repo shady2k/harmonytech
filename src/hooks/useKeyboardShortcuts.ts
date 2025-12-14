@@ -1,6 +1,15 @@
 import { useEffect, useCallback, useState } from 'react'
 import { useUIStore } from '@/stores/ui.store'
-import type { ViewType } from '@/types/navigation'
+import {
+  getViewKeyMap,
+  ACTION_SHORTCUTS,
+  LIST_SHORTCUTS,
+  GENERAL_SHORTCUTS,
+} from '@/config/shortcuts'
+
+// Re-export for convenience
+export { getKeyboardShortcuts } from '@/config/shortcuts'
+export type { ShortcutGroup } from '@/config/shortcuts'
 
 interface KeyboardShortcutsOptions {
   enabled?: boolean
@@ -10,20 +19,7 @@ interface KeyboardShortcutsOptions {
   onAction?: (action: 'complete' | 'edit' | 'delete') => void
 }
 
-const VIEW_SHORTCUTS: Record<string, ViewType> = {
-  '1': 'inbox',
-  '2': 'tasks',
-  '3': 'thoughts',
-  '4': 'settings',
-}
-
-// Go-to shortcuts (g + key)
-const GOTO_SHORTCUTS: Record<string, ViewType> = {
-  i: 'inbox',
-  t: 'tasks',
-  h: 'thoughts', // 'h' for tHoughts since 't' is taken
-  s: 'settings',
-}
+const VIEW_SHORTCUTS = getViewKeyMap()
 
 interface UseKeyboardShortcutsReturn {
   isHelpModalOpen: boolean
@@ -36,7 +32,6 @@ export function useKeyboardShortcuts(
 ): UseKeyboardShortcutsReturn {
   const { enabled = true, onNavigateNext, onNavigatePrev, onSelect, onAction } = options
   const { openCapture, closeCapture, isCaptureOpen, setActiveView } = useUIStore()
-  const [waitingForGoto, setWaitingForGoto] = useState(false)
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false)
 
   const openHelpModal = useCallback(() => {
@@ -53,8 +48,11 @@ export function useKeyboardShortcuts(
       const isInputField =
         target.tagName === 'INPUT' || target.tagName === 'TEXTAREA' || target.isContentEditable
 
+      // Use event.code for layout-independent shortcuts
+      const code = event.code
+
       // Allow Escape to work even in input fields
-      if (event.key === 'Escape') {
+      if (code === GENERAL_SHORTCUTS.escape.key) {
         if (isHelpModalOpen) {
           event.preventDefault()
           setIsHelpModalOpen(false)
@@ -63,9 +61,6 @@ export function useKeyboardShortcuts(
         if (isCaptureOpen) {
           event.preventDefault()
           closeCapture()
-        }
-        if (waitingForGoto) {
-          setWaitingForGoto(false)
         }
         return
       }
@@ -78,98 +73,81 @@ export function useKeyboardShortcuts(
       // Check for modifier keys
       const hasModifier = event.metaKey || event.ctrlKey || event.altKey
 
-      // Handle g + key navigation
-      if (waitingForGoto && !hasModifier) {
-        setWaitingForGoto(false)
-        if (event.key in GOTO_SHORTCUTS) {
-          event.preventDefault()
-          setActiveView(GOTO_SHORTCUTS[event.key])
-          return
-        }
-      }
-
-      // 'g' - Start go-to sequence
-      if (event.key === 'g' && !hasModifier && !waitingForGoto) {
-        setWaitingForGoto(true)
-        // Auto-cancel after 1 second
-        setTimeout(() => {
-          setWaitingForGoto(false)
-        }, 1000)
-        return
-      }
-
       // 'j' - Navigate down (next item)
-      if (event.key === 'j' && !hasModifier) {
+      if (code === LIST_SHORTCUTS.next.key && !hasModifier) {
         event.preventDefault()
         onNavigateNext?.()
         return
       }
 
       // 'k' - Navigate up (previous item)
-      if (event.key === 'k' && !hasModifier) {
+      if (code === LIST_SHORTCUTS.prev.key && !hasModifier) {
         event.preventDefault()
         onNavigatePrev?.()
         return
       }
 
       // Enter - Select/open current item
-      if (event.key === 'Enter' && !hasModifier) {
+      if (code === LIST_SHORTCUTS.select.key && !hasModifier) {
         event.preventDefault()
         onSelect?.()
         return
       }
 
       // Space or 'x' - Complete task
-      if ((event.key === ' ' || event.key === 'x') && !hasModifier) {
+      if (
+        (code === ACTION_SHORTCUTS.completeAlt.key || code === ACTION_SHORTCUTS.complete.key) &&
+        !hasModifier
+      ) {
         event.preventDefault()
         onAction?.('complete')
         return
       }
 
       // 'e' - Edit current item
-      if (event.key === 'e' && !hasModifier) {
+      if (code === ACTION_SHORTCUTS.edit.key && !hasModifier) {
         event.preventDefault()
         onAction?.('edit')
         return
       }
 
       // 'd' - Delete current item
-      if (event.key === 'd' && !hasModifier) {
+      if (code === ACTION_SHORTCUTS.delete.key && !hasModifier) {
         event.preventDefault()
         onAction?.('delete')
         return
       }
 
       // 'c' - Open capture (without modifier)
-      if (event.key === 'c' && !hasModifier) {
+      if (code === ACTION_SHORTCUTS.capture.key && !hasModifier) {
+        event.preventDefault()
+        openCapture()
+        return
+      }
+
+      // 'n' - New task (alias for capture)
+      if (code === ACTION_SHORTCUTS.captureAlt.key && !hasModifier) {
         event.preventDefault()
         openCapture()
         return
       }
 
       // '/' - Focus search (future feature placeholder)
-      if (event.key === '/' && !hasModifier) {
+      if (code === ACTION_SHORTCUTS.search.key && !hasModifier && !event.shiftKey) {
         event.preventDefault()
         // TODO: Focus search input when implemented
         return
       }
 
-      // Number keys 1-4 - Switch views
-      if (!hasModifier && event.key in VIEW_SHORTCUTS) {
+      // Letter keys for navigation (h, i, t, o, s)
+      if (!hasModifier && code in VIEW_SHORTCUTS) {
         event.preventDefault()
-        setActiveView(VIEW_SHORTCUTS[event.key])
+        setActiveView(VIEW_SHORTCUTS[code])
         return
       }
 
-      // 'n' - New task (alias for capture)
-      if (event.key === 'n' && !hasModifier) {
-        event.preventDefault()
-        openCapture()
-        return
-      }
-
-      // '?' - Show keyboard shortcuts help
-      if (event.key === '?' && event.shiftKey) {
+      // '?' (Shift + /) - Show keyboard shortcuts help
+      if (code === GENERAL_SHORTCUTS.help.key && event.shiftKey) {
         event.preventDefault()
         setIsHelpModalOpen(true)
         return
@@ -180,7 +158,6 @@ export function useKeyboardShortcuts(
       closeCapture,
       isCaptureOpen,
       setActiveView,
-      waitingForGoto,
       isHelpModalOpen,
       onNavigateNext,
       onNavigatePrev,
@@ -206,47 +183,4 @@ export function useKeyboardShortcuts(
     openHelpModal,
     closeHelpModal,
   }
-}
-
-export interface ShortcutGroup {
-  title: string
-  shortcuts: { key: string; description: string }[]
-}
-
-/**
- * Get all keyboard shortcuts grouped by category
- */
-export function getKeyboardShortcuts(): ShortcutGroup[] {
-  return [
-    {
-      title: 'Navigation',
-      shortcuts: [
-        { key: 'j', description: 'Move down' },
-        { key: 'k', description: 'Move up' },
-        { key: 'Enter', description: 'Open/select item' },
-        { key: 'g i', description: 'Go to Inbox' },
-        { key: 'g t', description: 'Go to Tasks' },
-        { key: 'g h', description: 'Go to Thoughts' },
-        { key: 'g s', description: 'Go to Settings' },
-        { key: '1-4', description: 'Switch view' },
-      ],
-    },
-    {
-      title: 'Actions',
-      shortcuts: [
-        { key: 'c / n', description: 'New capture' },
-        { key: 'x / Space', description: 'Complete task' },
-        { key: 'e', description: 'Edit item' },
-        { key: 'd', description: 'Delete item' },
-        { key: '/', description: 'Search' },
-      ],
-    },
-    {
-      title: 'General',
-      shortcuts: [
-        { key: 'Esc', description: 'Close modal' },
-        { key: '?', description: 'Show shortcuts' },
-      ],
-    },
-  ]
 }

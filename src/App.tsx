@@ -13,13 +13,16 @@ import { WhatToDoNext } from '@/components/recommendations/WhatToDoNext'
 import { InboxView } from '@/components/inbox/InboxView'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
+import { KeyboardShortcutsModal } from '@/components/ui/KeyboardShortcutsModal'
 import { useAI } from '@/hooks/useAI'
 import { useBackgroundAI } from '@/hooks/useBackgroundAI'
+import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
 import { getDeviceId } from '@/lib/sync'
 
 function AppContent(): ReactElement {
   const { db, isLoading: isDbLoading, error: dbError } = useDatabaseContext()
   const { activeView, setActiveView, isCaptureOpen, openCapture, closeCapture } = useUIStore()
+  const { isHelpModalOpen, closeHelpModal } = useKeyboardShortcuts()
   const {
     inputText,
     audioBlob,
@@ -263,6 +266,8 @@ function AppContent(): ReactElement {
           void handleSave()
         }}
       />
+
+      <KeyboardShortcutsModal isOpen={isHelpModalOpen} onClose={closeHelpModal} />
     </>
   )
 }

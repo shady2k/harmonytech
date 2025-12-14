@@ -1,7 +1,6 @@
 import { type ReactElement, useState, useCallback } from 'react'
 import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
-import { Card } from '@/components/ui/Card'
 import { decodeInvite, isValidInviteFormat } from '@/lib/sync'
 
 interface JoinSpaceProps {
@@ -63,37 +62,35 @@ export function JoinSpace({
   }, [])
 
   return (
-    <Card className={className}>
-      <div className="space-y-4">
-        <div>
-          <h4 className="text-sm font-medium text-gray-900 dark:text-white">Join Sync Space</h4>
-          <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
-            Enter the invite code from another device
-          </p>
-        </div>
-
-        <Input
-          label="Invite Code"
-          value={code}
-          onChange={handleChange}
-          onKeyDown={handleKeyDown}
-          placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
-          error={error ?? undefined}
-          autoFocus
-          className="font-mono"
-        />
-
-        <div className="flex gap-2">
-          {onCancel !== undefined && (
-            <Button variant="ghost" size="sm" onClick={onCancel}>
-              Cancel
-            </Button>
-          )}
-          <Button size="sm" onClick={handleJoin} disabled={code.trim() === ''}>
-            Join Space
-          </Button>
-        </div>
+    <div className={`space-y-4 ${className}`}>
+      <div>
+        <h4 className="text-sm font-medium text-gray-900 dark:text-white">Join Sync Space</h4>
+        <p className="mt-1 text-xs text-gray-500 dark:text-gray-400">
+          Enter the invite code from another device
+        </p>
       </div>
-    </Card>
+
+      <Input
+        label="Invite Code"
+        value={code}
+        onChange={handleChange}
+        onKeyDown={handleKeyDown}
+        placeholder="XXXX-XXXX-XXXX-XXXX-XXXX-XXXX"
+        error={error ?? undefined}
+        autoFocus
+        className="font-mono"
+      />
+
+      <div className="flex gap-2">
+        {onCancel !== undefined && (
+          <Button variant="ghost" size="sm" onClick={onCancel}>
+            Cancel
+          </Button>
+        )}
+        <Button size="sm" onClick={handleJoin} disabled={code.trim() === ''}>
+          Join Space
+        </Button>
+      </div>
+    </div>
   )
 }

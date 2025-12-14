@@ -4,6 +4,8 @@ import type { ViewType } from '@/types/navigation'
 import { NavIcon } from './NavIcon'
 import { AIStatusIndicator } from './AIStatusIndicator'
 import { useInbox } from '@/hooks/useInbox'
+import { Kbd } from '@/components/ui/Kbd'
+import { NAV_SHORTCUTS, ACTION_SHORTCUTS } from '@/config/shortcuts'
 
 interface SidebarProps {
   activeView: ViewType
@@ -29,12 +31,16 @@ export function Sidebar({ activeView, onViewChange, onCaptureClick }: SidebarPro
           >
             <NavIcon name="plus" className="h-5 w-5" />
             <span>Capture</span>
+            <Kbd className="ml-1 border-indigo-500 bg-indigo-500 text-indigo-100">
+              {ACTION_SHORTCUTS.capture.label}
+            </Kbd>
           </button>
         </div>
 
         <nav className="mt-6 flex-1 px-2">
           {NAV_ITEMS.map((item) => {
             const badge = item.id === 'inbox' && inboxCount > 0 ? inboxCount : undefined
+            const shortcut = NAV_SHORTCUTS[item.id]
             return (
               <button
                 key={item.id}
@@ -55,6 +61,7 @@ export function Sidebar({ activeView, onViewChange, onCaptureClick }: SidebarPro
                     {badge > 99 ? '99+' : badge}
                   </span>
                 )}
+                <Kbd>{shortcut.label}</Kbd>
               </button>
             )
           })}

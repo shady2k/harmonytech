@@ -1,5 +1,4 @@
 import { type ReactElement } from 'react'
-import { Card } from '@/components/ui/Card'
 import { formatDeviceName } from '@/lib/sync'
 import type { ConnectedDevice } from '@/types/sync'
 
@@ -14,17 +13,17 @@ interface ConnectedDevicesProps {
 export function ConnectedDevices({ devices, className = '' }: ConnectedDevicesProps): ReactElement {
   if (devices.length === 0) {
     return (
-      <Card className={className}>
+      <div className={className}>
         <h4 className="text-sm font-medium text-gray-900 dark:text-white">Connected Devices</h4>
         <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">
           No other devices connected yet
         </p>
-      </Card>
+      </div>
     )
   }
 
   return (
-    <Card className={className}>
+    <div className={className}>
       <h4 className="mb-3 text-sm font-medium text-gray-900 dark:text-white">
         Connected Devices ({devices.length})
       </h4>
@@ -58,6 +57,6 @@ export function ConnectedDevices({ devices, className = '' }: ConnectedDevicesPr
           </li>
         ))}
       </ul>
-    </Card>
+    </div>
   )
 }
