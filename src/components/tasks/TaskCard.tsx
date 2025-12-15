@@ -3,6 +3,7 @@ import type { Task } from '@/types/task'
 import { Card } from '@/components/ui/Card'
 import { ContextBadge } from '@/components/ui/ContextBadge'
 import { EnergyIndicator } from '@/components/ui/EnergyIndicator'
+import { LinkifiedText } from '@/components/ui/LinkifiedText'
 import { formatDeadline, formatScheduledDate, isOverdue } from '@/lib/date-utils'
 
 interface TaskCardProps {
@@ -119,13 +120,20 @@ export function TaskCard({
         <div className="min-w-0 flex-1">
           {/* Next action */}
           <p
-            className={`text-sm font-medium leading-tight ${
+            className={`line-clamp-2 text-sm font-medium leading-tight ${
               task.isCompleted
                 ? 'text-gray-500 line-through dark:text-gray-400'
                 : 'text-gray-900 dark:text-white'
             }`}
           >
-            {task.nextAction}
+            <LinkifiedText
+              text={task.nextAction}
+              linkClassName={
+                task.isCompleted
+                  ? 'text-gray-500 underline break-all'
+                  : 'text-indigo-600 hover:text-indigo-700 dark:text-indigo-400 dark:hover:text-indigo-300 underline break-all'
+              }
+            />
           </p>
 
           {/* Metadata row */}

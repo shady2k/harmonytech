@@ -4,6 +4,7 @@ import { Button } from '@/components/ui/Button'
 import { Input } from '@/components/ui/Input'
 import { ContextBadge } from '@/components/ui/ContextBadge'
 import { EnergyIndicator } from '@/components/ui/EnergyIndicator'
+import { LinkifiedText } from '@/components/ui/LinkifiedText'
 import { CONTEXT_CONFIG } from '@/lib/context-config'
 import { ENERGY_CONFIG } from '@/lib/energy-config'
 import { formatDateTime } from '@/lib/date-utils'
@@ -135,7 +136,9 @@ export function TaskDetail({
                 className="w-full rounded-lg border border-gray-300 px-4 py-2.5 text-gray-900 focus:border-indigo-500 focus:outline-none focus:ring-2 focus:ring-indigo-500 dark:border-gray-700 dark:bg-gray-800 dark:text-gray-100"
               />
             ) : (
-              <p className="text-gray-900 dark:text-white">{task.nextAction}</p>
+              <p className="whitespace-pre-wrap text-gray-900 dark:text-white">
+                <LinkifiedText text={task.nextAction} />
+              </p>
             )}
           </div>
 
@@ -145,7 +148,9 @@ export function TaskDetail({
               <label className="mb-2 block text-sm font-medium text-gray-700 dark:text-gray-300">
                 Original Input
               </label>
-              <p className="text-sm text-gray-600 dark:text-gray-400">{task.rawInput}</p>
+              <p className="whitespace-pre-wrap text-sm text-gray-600 dark:text-gray-400">
+                <LinkifiedText text={task.rawInput} />
+              </p>
             </div>
           )}
 

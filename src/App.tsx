@@ -299,9 +299,7 @@ function AppContent(): ReactElement {
         onSave={(): void => {
           void handleSave()
         }}
-        onManualSave={(task, thought): void => {
-          void handleManualSave(task, thought)
-        }}
+        onManualSave={handleManualSave}
       />
 
       <KeyboardShortcutsModal isOpen={isHelpModalOpen} onClose={closeHelpModal} />

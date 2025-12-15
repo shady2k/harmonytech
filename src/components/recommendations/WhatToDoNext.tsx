@@ -24,6 +24,7 @@ export function WhatToDoNext({ className = '' }: WhatToDoNextProps): ReactElemen
     isLoading,
     error,
     isAIAvailable,
+    isPaused,
     refresh,
   } = useAutoRecommendations()
   const { count: inboxCount } = useInbox()
@@ -254,6 +255,42 @@ export function WhatToDoNext({ className = '' }: WhatToDoNextProps): ReactElemen
             }}
             isLoading={isLoading}
           />
+        </Card>
+      )}
+
+      {/* Paused state banner */}
+      {isPaused && (
+        <Card className="bg-amber-50 dark:bg-amber-900/20 border-amber-200 dark:border-amber-800">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <svg
+                className="h-4 w-4 text-amber-600 dark:text-amber-400"
+                fill="none"
+                viewBox="0 0 24 24"
+                stroke="currentColor"
+              >
+                <path
+                  strokeLinecap="round"
+                  strokeLinejoin="round"
+                  strokeWidth={2}
+                  d="M10 9v6m4-6v6m7-3a9 9 0 11-18 0 9 9 0 0118 0z"
+                />
+              </svg>
+              <span className="text-sm text-amber-700 dark:text-amber-300">
+                Auto-refresh paused
+              </span>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={(): void => {
+                void handleRefresh()
+              }}
+              className="text-amber-700 dark:text-amber-300 hover:bg-amber-100 dark:hover:bg-amber-900/40"
+            >
+              Resume
+            </Button>
+          </div>
         </Card>
       )}
 

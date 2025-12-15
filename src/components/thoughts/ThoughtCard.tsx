@@ -2,6 +2,7 @@ import { type ReactElement, useState } from 'react'
 import type { Thought } from '@/types/thought'
 import type { Task } from '@/types/task'
 import { Card } from '@/components/ui/Card'
+import { LinkifiedText } from '@/components/ui/LinkifiedText'
 import { AudioPlayer } from './AudioPlayer'
 import { formatRelativeDate } from '@/lib/date-utils'
 
@@ -52,7 +53,9 @@ export function ThoughtCard({
     >
       <div className="p-4">
         {/* Content */}
-        <p className="line-clamp-3 text-sm text-gray-900 dark:text-white">{thought.content}</p>
+        <p className="line-clamp-3 text-sm text-gray-900 dark:text-white">
+          <LinkifiedText text={thought.content} />
+        </p>
 
         {/* Tags and metadata row */}
         <div className="mt-3 flex flex-wrap items-center gap-2">

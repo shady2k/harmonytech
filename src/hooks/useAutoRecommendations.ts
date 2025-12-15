@@ -8,6 +8,7 @@ import { useCallback, useEffect, useRef, useMemo } from 'react'
 import { useTasks } from './useTasks'
 import { useThoughts } from './useThoughts'
 import { useAI } from './useAI'
+import { useIdleDetection } from './useIdleDetection'
 import { useRecommendationsStore, type Recommendation } from '@/stores/recommendations.store'
 import { aiService } from '@/services/ai'
 import { isTaskScheduledNow } from '@/lib/recurrence-utils'
@@ -29,6 +30,7 @@ interface UseAutoRecommendationsReturn {
   isLoading: boolean
   error: string | null
   isAIAvailable: boolean
+  isPaused: boolean
   refresh: (context?: {
     energy?: TaskEnergy
     timeAvailable?: number
@@ -64,6 +66,18 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
   const setLoading = useRecommendationsStore((state) => state.setLoading)
   const setError = useRecommendationsStore((state) => state.setError)
   const markStale = useRecommendationsStore((state) => state.markStale)
+
+  // Track idle state to pause auto-refresh
+  const { isIdle, isTabHidden } = useIdleDetection({
+    onIdleChange: (idle): void => {
+      // When returning from idle, mark stale to trigger fresh fetch
+      if (!idle && lastFetchedAt !== null) {
+        markStale()
+      }
+    },
+  })
+
+  const isPaused = isIdle || isTabHidden
 
   // Track previous task count to detect changes
   const prevTaskCountRef = useRef<number>(tasks.length)
@@ -180,8 +194,13 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
     prevTaskCountRef.current = tasks.length
   }, [tasks.length, lastFetchedAt, markStale])
 
-  // Auto-fetch on mount or when stale
+  // Auto-fetch on mount or when stale (skip if paused)
   useEffect(() => {
+    // Skip auto-fetch when user is idle or tab is hidden
+    if (isPaused) {
+      return
+    }
+
     if (!isAIAvailable || incompleteTasks.length === 0) {
       return
     }
@@ -206,6 +225,7 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
       clearTimeout(timer)
     }
   }, [
+    isPaused,
     isAIAvailable,
     incompleteTasks.length,
     lastFetchedAt,
@@ -222,6 +242,7 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
     isLoading,
     error,
     isAIAvailable,
+    isPaused,
     refresh: publicRefresh,
   }
 }

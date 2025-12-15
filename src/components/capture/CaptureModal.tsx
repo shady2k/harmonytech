@@ -13,7 +13,7 @@ interface CaptureModalProps {
   isOpen: boolean
   onClose: () => void
   onSave: () => void
-  onManualSave: (task: ManualTaskData | null, thought: ManualThoughtData | null) => void
+  onManualSave: (task: ManualTaskData | null, thought: ManualThoughtData | null) => Promise<void>
 }
 
 export function CaptureModal({
@@ -47,8 +47,8 @@ export function CaptureModal({
   }, [onSave, handleClose])
 
   const handleManualSave = useCallback(
-    (task: ManualTaskData | null, thought: ManualThoughtData | null): void => {
-      onManualSave(task, thought)
+    async (task: ManualTaskData | null, thought: ManualThoughtData | null): Promise<void> => {
+      await onManualSave(task, thought)
       handleClose()
     },
     [onManualSave, handleClose]

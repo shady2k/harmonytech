@@ -22,3 +22,9 @@ export const CACHE_TTL_PROPERTIES = 60 * 60 * 1000
 
 /** Cache TTL for recommendation responses (5 minutes) */
 export const CACHE_TTL_RECOMMENDATIONS = 5 * 60 * 1000
+
+/** Idle timeout in milliseconds before pausing recommendations (2 minutes) */
+export const IDLE_TIMEOUT_MS = 2 * 60 * 1000
+
+/** Throttle interval for activity detection events (1 second) */
+export const ACTIVITY_THROTTLE_MS = 1000

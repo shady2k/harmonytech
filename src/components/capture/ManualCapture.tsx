@@ -29,7 +29,7 @@ export interface ManualThoughtData {
 }
 
 interface ManualCaptureProps {
-  onSave: (task: ManualTaskData | null, thought: ManualThoughtData | null) => void
+  onSave: (task: ManualTaskData | null, thought: ManualThoughtData | null) => void | Promise<void>
   onCancel: () => void
 }
 
@@ -100,7 +100,7 @@ export function ManualCapture({ onSave, onCancel }: ManualCaptureProps): ReactEl
         ? { ...task, rawInput: task.nextAction } // rawInput = nextAction for manual entry
         : null
     const thoughtToSave = showThought && thought.content.trim() !== '' ? thought : null
-    onSave(taskToSave, thoughtToSave)
+    void onSave(taskToSave, thoughtToSave)
   }, [showTask, showThought, task, thought, onSave])
 
   const handleAddTag = useCallback((): void => {

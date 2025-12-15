@@ -12,7 +12,8 @@
     "format": "prettier --write \"src/**/*.{ts,tsx}\"",
     "format:check": "prettier --check \"src/**/*.{ts,tsx}\"",
     "typecheck": "tsc --noEmit",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "deploy": "./scripts/deploy-dev.sh"
   },
   "dependencies": {
     "dexie": "4.2.1",
