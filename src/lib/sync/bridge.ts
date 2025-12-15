@@ -248,8 +248,8 @@ function setupTableSync(
                 timestamp: new Date(),
               })
             } else {
-              // Update existing document if Yjs version is newer
-              if (yjsTime > localTime) {
+              // Update existing document if Yjs version is newer or equal
+              if (yjsTime >= localTime) {
                 log.debug(`[${tableName}] yjsObserver: updating (Yjs newer)`, {
                   id: key,
                   yjsTime,

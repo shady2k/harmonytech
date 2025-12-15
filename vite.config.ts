@@ -6,8 +6,12 @@ import basicSsl from '@vitejs/plugin-basic-ssl'
 import { VitePWA } from 'vite-plugin-pwa'
 import { devLoggerPlugin } from './vite-plugin-dev-logger'
 import { signalingPlugin } from './vite-plugin-signaling'
+import packageJson from './package.json'
 
 export default defineConfig({
+  define: {
+    __APP_VERSION__: JSON.stringify(packageJson.version),
+  },
   plugins: [
     react(),
     tailwindcss(),
@@ -15,7 +19,7 @@ export default defineConfig({
     devLoggerPlugin(),
     signalingPlugin(),
     VitePWA({
-      registerType: 'autoUpdate',
+      registerType: 'prompt',
       includeAssets: ['favicon.ico', 'apple-touch-icon.png', 'mask-icon.svg'],
       manifest: {
         name: 'HarmonyTech',

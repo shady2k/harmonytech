@@ -177,7 +177,7 @@ export function SettingsPage({ className = '' }: SettingsPageProps): ReactElemen
           <div className="space-y-3 text-sm">
             <div className="flex items-center justify-between">
               <span className="text-gray-600 dark:text-gray-400">Version</span>
-              <span className="font-medium text-gray-900 dark:text-white">0.1.0</span>
+              <span className="font-medium text-gray-900 dark:text-white">{__APP_VERSION__}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-gray-600 dark:text-gray-400">Built with</span>

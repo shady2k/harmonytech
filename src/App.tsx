@@ -14,6 +14,7 @@ import { WhatToDoNext } from '@/components/recommendations/WhatToDoNext'
 import { InboxView } from '@/components/inbox/InboxView'
 import { LoadingSpinner } from '@/components/ui/LoadingSpinner'
 import { OfflineBanner } from '@/components/ui/OfflineBanner'
+import { UpdatePrompt } from '@/components/pwa/UpdatePrompt'
 import { KeyboardShortcutsModal } from '@/components/ui/KeyboardShortcutsModal'
 import { useBackgroundAI } from '@/hooks/useBackgroundAI'
 import { useKeyboardShortcuts } from '@/hooks/useKeyboardShortcuts'
@@ -289,6 +290,7 @@ function AppContent(): ReactElement {
   return (
     <>
       <OfflineBanner />
+      <UpdatePrompt />
       <AppLayout activeView={activeView} onViewChange={setActiveView} onCaptureClick={openCapture}>
         {renderView()}
       </AppLayout>
