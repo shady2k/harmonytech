@@ -1,91 +1,90 @@
-import type { ReactElement } from 'react'
-import { useSyncStatus } from '@/hooks/useSyncStatus'
+import { useState, useEffect, type ReactElement } from 'react'
+import { useSyncState } from '@/hooks/useSync'
 
 interface SyncStatusProps {
   className?: string
   showLabel?: boolean
 }
 
-type StatusType = 'synced' | 'syncing' | 'offline' | 'disabled'
+type StatusType = 'off' | 'ready' | 'connected'
 
 function getStatusInfo(
   isEnabled: boolean,
-  isOnline: boolean,
-  isSyncing: boolean,
   connectedPeers: number
-): { status: StatusType; label: string; color: string } {
+): { status: StatusType; label: string } {
   if (!isEnabled) {
-    return {
-      status: 'disabled',
-      label: 'Sync off',
-      color: 'text-gray-400 dark:text-gray-500',
-    }
+    return { status: 'off', label: 'Off' }
   }
 
-  if (!isOnline) {
+  if (connectedPeers > 0) {
     return {
-      status: 'offline',
-      label: 'Offline',
-      color: 'text-yellow-500 dark:text-yellow-400',
-    }
-  }
-
-  if (isSyncing && connectedPeers > 0) {
-    return {
-      status: 'synced',
+      status: 'connected',
       label: `${String(connectedPeers)} peer${connectedPeers === 1 ? '' : 's'}`,
-      color: 'text-green-500 dark:text-green-400',
     }
   }
 
-  if (isSyncing) {
-    return {
-      status: 'syncing',
-      label: 'Syncing...',
-      color: 'text-blue-500 dark:text-blue-400',
-    }
-  }
-
-  return {
-    status: 'offline',
-    label: 'Connecting...',
-    color: 'text-yellow-500 dark:text-yellow-400',
-  }
+  return { status: 'ready', label: 'Ready' }
 }
 
 export function SyncStatus({ className = '', showLabel = true }: SyncStatusProps): ReactElement {
-  const { isEnabled, isOnline, isSyncing, connectedDevices } = useSyncStatus()
+  const { isEnabled, connectedDevices, lastSyncTime, recentSyncEvents } = useSyncState()
   const connectedPeers = connectedDevices.length > 0 ? connectedDevices.length - 1 : 0 // Exclude self
-  const { status, label, color } = getStatusInfo(isEnabled, isOnline, isSyncing, connectedPeers)
+  const { status, label } = getStatusInfo(isEnabled, connectedPeers)
+
+  // Update relative time every 10 seconds
+  const [now, setNow] = useState(() => Date.now())
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setNow(Date.now())
+    }, 10000)
+    return (): void => {
+      clearInterval(interval)
+    }
+  }, [])
+
+  // Count recent incoming events (last 30 seconds)
+  const recentIncomingCount = recentSyncEvents.filter((e) => {
+    const age = now - e.timestamp.getTime()
+    return e.type === 'incoming' && age < 30000
+  }).length
+
+  // Check for recent sync activity (last 5 seconds) for pulse animation
+  const hasRecentActivity = recentSyncEvents.some((e) => {
+    const age = now - e.timestamp.getTime()
+    return age < 5000
+  })
+
+  const dotColor = status === 'off' ? 'bg-gray-400' : 'bg-green-500'
+  const textColor =
+    status === 'off' ? 'text-gray-400 dark:text-gray-500' : 'text-green-500 dark:text-green-400'
 
   return (
     <div className={`flex items-center gap-1.5 ${className}`}>
       {/* Status indicator dot */}
       <div className="relative">
-        <span
-          className={`block h-2 w-2 rounded-full ${
-            status === 'synced'
-              ? 'bg-green-500'
-              : status === 'syncing'
-                ? 'bg-blue-500'
-                : status === 'offline'
-                  ? 'bg-yellow-500'
-                  : 'bg-gray-400'
-          }`}
-        />
-        {/* Pulse animation for syncing */}
-        {status === 'syncing' && (
-          <span className="absolute inset-0 h-2 w-2 animate-ping rounded-full bg-blue-500 opacity-75" />
+        <span className={`block h-2 w-2 rounded-full ${dotColor}`} />
+        {/* Pulse animation for recent sync activity */}
+        {hasRecentActivity && status !== 'off' && (
+          <span className="absolute inset-0 h-2 w-2 animate-ping rounded-full bg-green-500 opacity-75" />
         )}
       </div>
 
       {/* Label */}
-      {showLabel && <span className={`text-xs font-medium ${color}`}>{label}</span>}
+      {showLabel && <span className={`text-xs font-medium ${textColor}`}>{label}</span>}
 
-      {/* Icon based on status */}
-      {status === 'synced' && connectedPeers > 0 && (
+      {/* Sync activity indicator */}
+      {showLabel && status !== 'off' && lastSyncTime !== null && (
+        <span className="text-xs text-gray-400 dark:text-gray-500">
+          {recentIncomingCount > 0
+            ? `${String(recentIncomingCount)} received`
+            : formatRelativeTime(lastSyncTime, now)}
+        </span>
+      )}
+
+      {/* Peers icon when connected */}
+      {status === 'connected' && (
         <svg
-          className={`h-3.5 w-3.5 ${color}`}
+          className={`h-3.5 w-3.5 ${textColor}`}
           fill="none"
           viewBox="0 0 24 24"
           stroke="currentColor"
@@ -98,22 +97,18 @@ export function SyncStatus({ className = '', showLabel = true }: SyncStatusProps
           />
         </svg>
       )}
-
-      {status === 'offline' && isEnabled && (
-        <svg
-          className={`h-3.5 w-3.5 ${color}`}
-          fill="none"
-          viewBox="0 0 24 24"
-          stroke="currentColor"
-        >
-          <path
-            strokeLinecap="round"
-            strokeLinejoin="round"
-            strokeWidth={2}
-            d="M18.364 5.636a9 9 0 010 12.728m0 0l-2.829-2.829m2.829 2.829L21 21M15.536 8.464a5 5 0 010 7.072m0 0l-2.829-2.829m-4.243 2.829a4.978 4.978 0 01-1.414-2.83m-1.414 5.658a9 9 0 01-2.167-9.238m7.824 2.167a1 1 0 111.414 1.414m-1.414-1.414L3 3m8.293 8.293l1.414 1.414"
-          />
-        </svg>
-      )}
     </div>
   )
+}
+
+function formatRelativeTime(date: Date, now: number): string {
+  const diffMs = now - date.getTime()
+  const diffSec = Math.floor(diffMs / 1000)
+
+  if (diffSec < 5) return 'just now'
+  if (diffSec < 60) return `${String(diffSec)}s ago`
+  const diffMin = Math.floor(diffSec / 60)
+  if (diffMin < 60) return `${String(diffMin)}m ago`
+  const diffHour = Math.floor(diffMin / 60)
+  return `${String(diffHour)}h ago`
 }

@@ -1,11 +1,12 @@
 import { useCallback, useEffect, type ReactElement } from 'react'
 import { DatabaseProvider, useDatabaseContext } from '@/contexts/DatabaseContext'
 import { AIStatusProvider } from '@/contexts/AIStatusContext'
+import { SyncProvider } from '@/contexts/SyncProvider'
 import { AppLayout } from '@/components/layout/AppLayout'
 import { useUIStore } from '@/stores/ui.store'
 import { useCaptureStore } from '@/stores'
 import { useSettingsStore } from '@/stores/settings.store'
-import { CaptureModal } from '@/components/capture/CaptureModal'
+import { CaptureModal, type ManualTaskData, type ManualThoughtData } from '@/components/capture'
 import { ThoughtsList } from '@/components/thoughts/ThoughtsList'
 import { TaskList } from '@/components/tasks/TaskList'
 import { SettingsPage } from '@/components/settings/SettingsPage'
@@ -155,6 +156,50 @@ function AppContent(): ReactElement {
     closeCapture()
   }, [resetCapture, closeCapture])
 
+  const handleManualSave = useCallback(
+    async (task: ManualTaskData | null, thought: ManualThoughtData | null): Promise<void> => {
+      const now = new Date().toISOString()
+
+      // Save task directly (no AI processing needed)
+      if (task !== null) {
+        await db.tasks.add({
+          id: `task-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`,
+          rawInput: task.rawInput,
+          nextAction: task.nextAction,
+          context: task.context,
+          energy: task.energy,
+          timeEstimate: task.timeEstimate,
+          project: task.project,
+          scheduledStart: task.scheduledStart,
+          scheduledEnd: task.scheduledEnd,
+          deadline: task.deadline,
+          recurrence: task.recurrence,
+          isSomedayMaybe: task.isSomedayMaybe,
+          isCompleted: false,
+          createdAt: now,
+          updatedAt: now,
+          sourceThoughtId: '',
+        })
+      }
+
+      // Save thought directly (aiProcessed=true since user manually created it)
+      if (thought !== null) {
+        await db.thoughts.add({
+          id: `thought-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`,
+          content: thought.content,
+          tags: thought.tags,
+          linkedTaskIds: [],
+          aiProcessed: true,
+          processingStatus: 'processed',
+          createdAt: now,
+          updatedAt: now,
+          createdByDeviceId: getDeviceId(),
+        })
+      }
+    },
+    [db]
+  )
+
   // Show loading while database initializes
   if (isDbLoading) {
     return (
@@ -254,6 +299,9 @@ function AppContent(): ReactElement {
         onSave={(): void => {
           void handleSave()
         }}
+        onManualSave={(task, thought): void => {
+          void handleManualSave(task, thought)
+        }}
       />
 
       <KeyboardShortcutsModal isOpen={isHelpModalOpen} onClose={closeHelpModal} />
@@ -265,7 +313,9 @@ function App(): ReactElement {
   return (
     <DatabaseProvider>
       <AIStatusProvider>
-        <AppContent />
+        <SyncProvider>
+          <AppContent />
+        </SyncProvider>
       </AIStatusProvider>
     </DatabaseProvider>
   )

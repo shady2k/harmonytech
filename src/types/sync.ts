@@ -68,3 +68,51 @@ export interface DecodedInvite {
   spaceId: string
   password: string
 }
+
+/**
+ * Sync activity event for tracking what synced
+ */
+export interface SyncActivityEvent {
+  type: 'incoming' | 'outgoing'
+  table: 'tasks' | 'thoughts' | 'projects' | 'settings'
+  action: 'add' | 'update' | 'delete'
+  itemId: string
+  timestamp: Date
+}
+
+/**
+ * Summary of recent sync activity
+ */
+export interface SyncActivity {
+  lastSyncTime: Date | null
+  recentEvents: SyncActivityEvent[]
+}
+
+/**
+ * Sync context state - read-only for consumers
+ */
+export interface SyncState extends SyncStatus {
+  lastSyncTime: Date | null
+  recentSyncEvents: SyncActivityEvent[]
+}
+
+/**
+ * Sync context actions - methods to control sync
+ */
+export interface SyncActions {
+  enableSync: () => void
+  disableSync: () => void
+  createSpace: () => { spaceId: string; password: string }
+  joinSpace: (spaceId: string, password: string) => void
+  setDeviceName: (name: string) => void
+  refreshStatus: () => void
+  dismissVersionMismatch: () => void
+}
+
+/**
+ * Sync context value
+ */
+export interface SyncContextValue {
+  state: SyncState
+  actions: SyncActions
+}

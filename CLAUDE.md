@@ -7,6 +7,11 @@
 3. **No hardcoding** - Use configuration files, environment variables, or constants. Never hardcode values that may change.
 4. **No unnecessary fallbacks** - Avoid defensive coding that masks problems. Don't add backwards compatibility shims unless explicitly required.
 5. **Data integrity is paramount** - Data cannot be lost or corrupted. All data operations must be atomic or properly recoverable.
+6. **Reuse centralized resources** - Before implementing, check for existing centralized definitions:
+   - Types/schemas: `src/types/` (use `Pick`/`Omit` to derive, don't duplicate)
+   - Shortcuts: `src/config/shortcuts.ts`
+   - Constants: `src/lib/*-config.ts` (context, energy, etc.)
+   - UI components: `src/components/ui/`
 
 <!-- CLAVIX:START -->
 ## Clavix Integration

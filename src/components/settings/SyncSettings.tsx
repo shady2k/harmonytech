@@ -1,6 +1,6 @@
 import { type ReactElement, useState, useCallback } from 'react'
 import { createLogger } from '@/lib/logger'
-import { useSyncStatus } from '@/hooks/useSyncStatus'
+import { useSync } from '@/hooks/useSync'
 import { useInviteLink } from '@/hooks/useInviteLink'
 import { Button } from '@/components/ui/Button'
 import { Card } from '@/components/ui/Card'
@@ -10,6 +10,7 @@ import {
   JoinSpace,
   ConnectedDevices,
   VersionMismatchAlert,
+  SyncStatus,
 } from '@/components/sync'
 import { getPassword } from '@/lib/sync'
 
@@ -20,22 +21,10 @@ interface SyncSettingsProps {
 type SyncView = 'main' | 'join'
 
 export function SyncSettings({ className = '' }: SyncSettingsProps): ReactElement {
-  const {
-    isEnabled,
-    isOnline,
-    isSyncing,
-    connectedDevices,
-    deviceName,
-    spaceId,
-    versionMismatch,
-    syncError,
-    enableSync,
-    disableSync,
-    createSpace,
-    joinSpace,
-    setDeviceName,
-    dismissVersionMismatch,
-  } = useSyncStatus()
+  const { state, actions } = useSync()
+  const { isEnabled, connectedDevices, deviceName, spaceId, versionMismatch, syncError } = state
+  const { enableSync, disableSync, createSpace, joinSpace, setDeviceName, dismissVersionMismatch } =
+    actions
 
   const { pendingInvite, clearPendingInvite } = useInviteLink()
   const [view, setView] = useState<SyncView>('main')
@@ -260,20 +249,7 @@ export function SyncSettings({ className = '' }: SyncSettingsProps): ReactElemen
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <span className="text-sm text-gray-600 dark:text-gray-400">Connection</span>
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`h-2 w-2 rounded-full ${
-                      !isOnline
-                        ? 'bg-yellow-500'
-                        : isSyncing
-                          ? 'bg-green-500'
-                          : 'bg-blue-500 animate-pulse'
-                    }`}
-                  />
-                  <span className="text-sm font-medium text-gray-900 dark:text-white">
-                    {!isOnline ? 'Offline' : isSyncing ? 'Connected' : 'Connecting...'}
-                  </span>
-                </div>
+                <SyncStatus />
               </div>
 
               <div className="flex items-center justify-between">

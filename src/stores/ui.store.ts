@@ -2,6 +2,8 @@ import { create } from 'zustand'
 import type { TaskContext, TaskEnergy } from '@/types/task'
 
 export type ActiveView = 'home' | 'inbox' | 'tasks' | 'timers' | 'thoughts' | 'settings'
+export type CaptureAssistMode = 'ai' | 'manual'
+export type CaptureItemType = 'task' | 'thought' | 'both'
 
 export interface TaskFilters {
   context: TaskContext | null
@@ -16,6 +18,8 @@ interface UIState {
 
   // Capture modal
   isCaptureOpen: boolean
+  captureAssistMode: CaptureAssistMode
+  captureItemType: CaptureItemType
 
   // Processing state
   isProcessing: boolean
@@ -33,8 +37,12 @@ interface UIActions {
 
   // Capture modal
   openCapture: () => void
+  openCaptureForTask: () => void
+  openCaptureForThought: () => void
   closeCapture: () => void
   toggleCapture: () => void
+  setCaptureAssistMode: (mode: CaptureAssistMode) => void
+  setCaptureItemType: (type: CaptureItemType) => void
 
   // Processing state
   setIsProcessing: (isProcessing: boolean) => void
@@ -57,6 +65,8 @@ interface UIActions {
 const initialState: UIState = {
   activeView: 'home',
   isCaptureOpen: false,
+  captureAssistMode: 'ai',
+  captureItemType: 'thought',
   isProcessing: false,
   selectedTaskId: null,
   filters: {
@@ -77,13 +87,25 @@ export const useUIStore = create<UIState & UIActions>((set) => ({
 
   // Capture modal
   openCapture: (): void => {
-    set({ isCaptureOpen: true })
+    set({ isCaptureOpen: true, captureAssistMode: 'ai', captureItemType: 'thought' })
+  },
+  openCaptureForTask: (): void => {
+    set({ isCaptureOpen: true, captureAssistMode: 'manual', captureItemType: 'task' })
+  },
+  openCaptureForThought: (): void => {
+    set({ isCaptureOpen: true, captureAssistMode: 'manual', captureItemType: 'thought' })
   },
   closeCapture: (): void => {
-    set({ isCaptureOpen: false })
+    set({ isCaptureOpen: false, captureAssistMode: 'ai', captureItemType: 'thought' })
   },
   toggleCapture: (): void => {
     set((state) => ({ isCaptureOpen: !state.isCaptureOpen }))
+  },
+  setCaptureAssistMode: (mode): void => {
+    set({ captureAssistMode: mode })
+  },
+  setCaptureItemType: (type): void => {
+    set({ captureItemType: type })
   },
 
   // Processing state

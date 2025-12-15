@@ -2,6 +2,7 @@ import type { ReactElement } from 'react'
 import { NAV_ITEMS } from '@/lib/constants/navigation'
 import type { ViewType } from '@/types/navigation'
 import { NavIcon } from './NavIcon'
+import { SyncStatus } from '@/components/sync/SyncStatus'
 import { useInbox } from '@/hooks/useInbox'
 
 interface MobileNavProps {
@@ -26,6 +27,10 @@ export function MobileNav({
 
   return (
     <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-gray-200 bg-white pb-[env(safe-area-inset-bottom)] dark:border-gray-800 dark:bg-gray-900 md:hidden">
+      {/* Sync Status - compact indicator above nav */}
+      <div className="flex items-center justify-center border-b border-gray-100 px-2 py-1 dark:border-gray-800">
+        <SyncStatus showLabel />
+      </div>
       <div className="grid h-16 grid-cols-7">
         {allItems.map((item) => {
           if (item.id === 'capture') {

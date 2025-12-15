@@ -24,6 +24,7 @@ const STORAGE_KEYS = {
   password: 'harmonytech-space-password',
   deviceId: 'harmonytech-device-id',
   deviceName: 'harmonytech-device-name',
+  syncEnabled: 'harmonytech-sync-enabled',
   // Legacy key for migration
   legacyRoomName: 'harmonytech-room-name',
 }
@@ -77,6 +78,27 @@ export function setDeviceName(name: string): void {
  */
 export function hasDeviceName(): boolean {
   return getDeviceName() !== null
+}
+
+// =============================================================================
+// Sync Enabled Preference
+// =============================================================================
+
+/**
+ * Get sync enabled preference (user's choice to have sync on/off)
+ * Returns true by default if not explicitly disabled
+ */
+export function getSyncEnabledPreference(): boolean {
+  const value = localStorage.getItem(STORAGE_KEYS.syncEnabled)
+  // Default to true if not set (backwards compatibility)
+  return value !== 'false'
+}
+
+/**
+ * Set sync enabled preference
+ */
+export function setSyncEnabledPreference(enabled: boolean): void {
+  localStorage.setItem(STORAGE_KEYS.syncEnabled, String(enabled))
 }
 
 // =============================================================================

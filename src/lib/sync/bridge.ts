@@ -16,6 +16,7 @@ import {
   getSettingsMap,
   initSyncProvider,
 } from './core'
+import type { SyncActivityEvent } from '@/types/sync'
 
 const log = createLogger('SyncBridge')
 
@@ -26,9 +27,30 @@ interface SyncBridgeConfig {
 }
 
 type CleanupFunction = () => void
+type SyncActivityListener = (event: SyncActivityEvent) => void
 
 let syncCleanupFunctions: CleanupFunction[] = []
 let isSyncInitialized = false
+const syncActivityListeners = new Set<SyncActivityListener>()
+
+/**
+ * Subscribe to sync activity events
+ */
+export function onSyncActivity(listener: SyncActivityListener): () => void {
+  syncActivityListeners.add(listener)
+  return () => {
+    syncActivityListeners.delete(listener)
+  }
+}
+
+/**
+ * Emit sync activity event to all listeners
+ */
+function emitSyncActivity(event: SyncActivityEvent): void {
+  for (const listener of syncActivityListeners) {
+    listener(event)
+  }
+}
 
 /**
  * Get updatedAt as comparable string from document, defaulting to empty string
@@ -101,6 +123,13 @@ function setupTableSync(
 
       if (existing === undefined || existingTime <= localTime) {
         yMap.set(primKey, obj)
+        emitSyncActivity({
+          type: 'outgoing',
+          table: tableName,
+          action: 'add',
+          itemId: primKey,
+          timestamp: new Date(),
+        })
       }
     } finally {
       isApplyingFromDexie = false
@@ -129,6 +158,13 @@ function setupTableSync(
 
       if (existing === undefined || existingTime <= updatedTime) {
         yMap.set(primKey, updatedObj)
+        emitSyncActivity({
+          type: 'outgoing',
+          table: tableName,
+          action: 'update',
+          itemId: primKey,
+          timestamp: new Date(),
+        })
       }
     } finally {
       isApplyingFromDexie = false
@@ -140,6 +176,13 @@ function setupTableSync(
     isApplyingFromDexie = true
     try {
       yMap.delete(primKey)
+      emitSyncActivity({
+        type: 'outgoing',
+        table: tableName,
+        action: 'delete',
+        itemId: primKey,
+        timestamp: new Date(),
+      })
     } finally {
       isApplyingFromDexie = false
     }
@@ -176,6 +219,13 @@ function setupTableSync(
             if (existing !== undefined) {
               log.debug(`[${tableName}] yjsObserver: deleting`, { id: key })
               await db[tableName].delete(key)
+              emitSyncActivity({
+                type: 'incoming',
+                table: tableName,
+                action: 'delete',
+                itemId: key,
+                timestamp: new Date(),
+              })
             }
           } else {
             // Document was added or updated in Yjs (action is 'add' or 'update')
@@ -190,6 +240,13 @@ function setupTableSync(
               // Insert new document
               log.debug(`[${tableName}] yjsObserver: inserting new`, { id: key, yjsTime })
               await db[tableName].add(yjsData as never)
+              emitSyncActivity({
+                type: 'incoming',
+                table: tableName,
+                action: 'add',
+                itemId: key,
+                timestamp: new Date(),
+              })
             } else {
               // Update existing document if Yjs version is newer
               if (yjsTime > localTime) {
@@ -199,6 +256,13 @@ function setupTableSync(
                   localTime,
                 })
                 await db[tableName].put(yjsData as never)
+                emitSyncActivity({
+                  type: 'incoming',
+                  table: tableName,
+                  action: 'update',
+                  itemId: key,
+                  timestamp: new Date(),
+                })
               } else {
                 log.debug(`[${tableName}] yjsObserver: keeping local (local newer or equal)`, {
                   id: key,

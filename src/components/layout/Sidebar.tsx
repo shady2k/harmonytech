@@ -3,6 +3,7 @@ import { NAV_ITEMS } from '@/lib/constants/navigation'
 import type { ViewType } from '@/types/navigation'
 import { NavIcon } from './NavIcon'
 import { AIStatusIndicator } from './AIStatusIndicator'
+import { SyncStatus } from '@/components/sync/SyncStatus'
 import { useInbox } from '@/hooks/useInbox'
 import { Kbd } from '@/components/ui/Kbd'
 import { NAV_SHORTCUTS, ACTION_SHORTCUTS } from '@/config/shortcuts'
@@ -66,6 +67,17 @@ export function Sidebar({ activeView, onViewChange, onCaptureClick }: SidebarPro
             )
           })}
         </nav>
+
+        {/* Sync Status Indicator */}
+        <button
+          type="button"
+          onClick={() => {
+            onViewChange('settings')
+          }}
+          className="w-full cursor-pointer border-t border-gray-200 p-4 text-left transition-colors hover:bg-gray-50 dark:border-gray-800 dark:hover:bg-gray-800"
+        >
+          <SyncStatus showLabel />
+        </button>
 
         {/* AI Status Indicator */}
         <button

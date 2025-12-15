@@ -26,6 +26,9 @@ export {
   getDeviceName,
   setDeviceName,
   hasDeviceName,
+  // Sync preference
+  getSyncEnabledPreference,
+  setSyncEnabledPreference,
   // Space configuration
   getSpaceId,
   setSpaceId,
@@ -64,4 +67,9 @@ export {
 export { generateQRCode, generateQRCodeSVG } from './qr-code'
 
 // Sync bridge (Dexie <-> Yjs)
-export { initSyncBridge, cleanupSyncBridge, isSyncBridgeInitialized } from './bridge'
+export {
+  initSyncBridge,
+  cleanupSyncBridge,
+  isSyncBridgeInitialized,
+  onSyncActivity,
+} from './bridge'

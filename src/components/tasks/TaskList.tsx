@@ -58,7 +58,7 @@ export function TaskList({
 }: TaskListProps): ReactElement {
   const { tasks, isLoading, error, completeTask, uncompleteTask, updateTask, deleteTask } =
     useTasks()
-  const { selectedTaskId, selectTask, clearSelection, openCapture } = useUIStore()
+  const { selectedTaskId, selectTask, clearSelection, openCaptureForTask } = useUIStore()
   const [showFilterPanel, setShowFilterPanel] = useState(false)
   const [completeError, setCompleteError] = useState<string | null>(null)
 
@@ -191,7 +191,7 @@ export function TaskList({
               title="No tasks yet"
               description="Capture your first task to get started. Use voice or text to quickly add tasks."
               actionLabel="Add task"
-              onAction={openCapture}
+              onAction={openCaptureForTask}
             />
           ) : (
             <div className="space-y-6 p-4">
