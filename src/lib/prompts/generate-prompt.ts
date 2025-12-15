@@ -71,6 +71,11 @@ Return a JSON object with this exact structure:
         "daysOfWeek": [1, 3, 5],
         "anchorDay": 10,
         "constraint": "next-weekend"
+      },
+      "properties": {
+        "context": "computer|phone|errands|home|anywhere",
+        "energy": "high|medium|low",
+        "timeEstimate": 15
       }
     }
   ],
@@ -141,9 +146,10 @@ For RECURRING tasks, set the recurrence object. The app will calculate dates fro
 - "в выходные после 10 числа ежемесячно" → {"pattern": "monthly", "anchorDay": 10, "constraint": "next-weekend"}
 - "в ближайшие выходные после 10 числа ежемесячно" → {"pattern": "monthly", "anchorDay": 10, "constraint": "next-weekend"}
 - "в рабочий день после 15 числа каждого месяца" → {"pattern": "monthly", "anchorDay": 15, "constraint": "next-weekday"}
+- "с 25 до конца месяца"/"до конца месяца с 25 числа" → {"pattern": "monthly", "anchorDay": 25, "constraint": "end-of-month"}
 - If no recurrence mentioned, set recurrence to null
 - daysOfWeek uses ISO weekday: 1=Monday, 7=Sunday
-- constraint values: "next-weekend" (Sat-Sun), "next-weekday" (Mon-Fri), "next-saturday", "next-sunday"
+- constraint values: "next-weekend" (Sat-Sun), "next-weekday" (Mon-Fri), "next-saturday", "next-sunday", "end-of-month" (from anchorDay to last day of month)
 
 ONE-TIME vs RECURRING:
 - "в эти выходные"/"this weekend" → ONE-TIME (dateAnchor: {"type": "relative", "value": "this-weekend"}, recurrence: null)
@@ -217,13 +223,37 @@ FULL EXAMPLES:
     → dateAnchorEnd: null
     → recurrence: null
 
+11. "заплатить за интернет до конца каждого месяца с 25 числа"
+    → nextAction: "Заплатить за интернет"
+    → dateAnchor: null
+    → dateAnchorEnd: null
+    → recurrence: {"pattern": "monthly", "anchorDay": 25, "constraint": "end-of-month"}
+
+TASK PROPERTIES (for each actionable task, suggest GTD properties):
+
+Context - where/how the task can be done:
+- "computer": Requires a computer/laptop
+- "phone": Can be done on mobile phone
+- "errands": Requires going somewhere (shopping, appointments)
+- "home": Can only be done at home
+- "anywhere": No specific location/tool required
+
+Energy - mental effort required:
+- "high": Requires focus and mental effort
+- "medium": Moderate effort required
+- "low": Can be done when tired/distracted
+
+Time estimate (in minutes): 5, 15, 30, 60, 120, 240
+
 Guidelines:
+- IMPORTANT: Preserve the original language of the input. If input is in Russian, nextAction must be in Russian. If input is in English, nextAction must be in English.
 - Next actions should be specific and start with a verb (Call, Email, Write, Buy, Review, etc.)
 - Break complex items into multiple tasks if needed
 - Thoughts are things to remember but not act on immediately
 - Tags for thoughts should be relevant categories
 - Return empty arrays if no tasks or thoughts are found
 - Return ONLY the raw JSON object, without any markdown formatting or code blocks
+- Always include "properties" object for actionable tasks
 
 User input:
 `

@@ -556,6 +556,15 @@ function applyConstraint(
       return { start: result, end: null }
     }
 
+    case 'end-of-month': {
+      // Start from anchor day, end at last day of month
+      result.setHours(0, 0, 0, 0)
+      // Get last day of current month
+      const endDate = new Date(result.getFullYear(), result.getMonth() + 1, 0)
+      endDate.setHours(23, 59, 59, 999)
+      return { start: result, end: endDate }
+    }
+
     default:
       return { start: result, end: null }
   }

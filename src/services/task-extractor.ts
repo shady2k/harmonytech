@@ -14,9 +14,11 @@ import {
   extractedTaskSchema,
   extractedThoughtSchema,
   dateAnchorSchema,
+  extractedPropertiesSchema,
   type ExtractedTask,
   type ExtractedThought,
   type DateAnchor,
+  type ExtractedProperties,
 } from '@/types/schemas/task.schema'
 
 export interface ExtractionResult {
@@ -105,6 +107,10 @@ function parseLenient(data: unknown): { tasks: ExtractedTask[]; thoughts: Extrac
     const recurrence = normalizeRecurrence(task['recurrence'])
     if (recurrence !== undefined) extracted.recurrence = recurrence
 
+    // Parse GTD properties
+    const properties = normalizeProperties(task['properties'])
+    if (properties !== undefined) extracted.properties = properties
+
     tasks.push(extracted)
   }
 
@@ -132,7 +138,57 @@ function normalizeStringArray(value: unknown): string[] {
   return value.filter((item): item is string => typeof item === 'string')
 }
 
-const VALID_CONSTRAINTS = ['next-weekend', 'next-weekday', 'next-saturday', 'next-sunday'] as const
+/**
+ * Valid context values
+ */
+const VALID_CONTEXTS = ['computer', 'phone', 'errands', 'home', 'anywhere'] as const
+type TaskContext = (typeof VALID_CONTEXTS)[number]
+
+/**
+ * Valid energy values
+ */
+const VALID_ENERGY = ['high', 'medium', 'low'] as const
+type TaskEnergy = (typeof VALID_ENERGY)[number]
+
+/**
+ * Normalize properties object from AI response
+ */
+function normalizeProperties(value: unknown): ExtractedProperties | undefined {
+  if (value === null || value === undefined) return undefined
+  if (typeof value !== 'object') return undefined
+
+  // Try Zod validation first
+  const zodResult = extractedPropertiesSchema.safeParse(value)
+  if (zodResult.success) {
+    return zodResult.data
+  }
+
+  // Fall back to manual normalization
+  const props = value as Record<string, unknown>
+
+  const contextRaw = props['context']
+  const energyRaw = props['energy']
+  const timeRaw = props['timeEstimate']
+
+  const isValidContext = (v: unknown): v is TaskContext =>
+    typeof v === 'string' && VALID_CONTEXTS.includes(v as TaskContext)
+  const isValidEnergy = (v: unknown): v is TaskEnergy =>
+    typeof v === 'string' && VALID_ENERGY.includes(v as TaskEnergy)
+
+  const context = isValidContext(contextRaw) ? contextRaw : 'anywhere'
+  const energy = isValidEnergy(energyRaw) ? energyRaw : 'medium'
+  const timeEstimate = typeof timeRaw === 'number' && timeRaw >= 5 && timeRaw <= 480 ? timeRaw : 15
+
+  return { context, energy, timeEstimate }
+}
+
+const VALID_CONSTRAINTS = [
+  'next-weekend',
+  'next-weekday',
+  'next-saturday',
+  'next-sunday',
+  'end-of-month',
+] as const
 type RecurrenceConstraint = (typeof VALID_CONSTRAINTS)[number]
 
 /**

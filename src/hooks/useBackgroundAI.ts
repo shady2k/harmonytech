@@ -38,7 +38,7 @@ const CONFIG_ERROR_COOLDOWN_MS = 30000 // Wait 30s before retrying after config 
 
 export function useBackgroundAI(): BackgroundAIState {
   const { aiEnabled, aiConfidenceThreshold } = useSettingsStore()
-  const { extractTasks, suggestTaskProperties, processVoice, isAIAvailable } = useAI()
+  const { extractTasks, processVoice, isAIAvailable } = useAI()
   const isProcessingRef = useRef(false)
   const [state, setState] = useState<BackgroundAIState>({
     pendingCount: 0,
@@ -326,7 +326,7 @@ export function useBackgroundAI(): BackgroundAIState {
           return
         }
 
-        // Create tasks with property suggestions
+        // Create tasks with property suggestions (now extracted in single AI call)
         const taskIds: string[] = []
         let overallConfidence = 1.0
 
@@ -334,33 +334,16 @@ export function useBackgroundAI(): BackgroundAIState {
           const taskId = `task-${String(Date.now())}-${Math.random().toString(36).substring(2, 9)}`
           taskIds.push(taskId)
 
-          // Get AI suggestions for task properties (via queue)
-          let context: 'computer' | 'phone' | 'errands' | 'home' | 'anywhere' = 'anywhere'
-          let energy: 'high' | 'medium' | 'low' = 'medium'
-          let timeEstimate = 15
-          let project: string | undefined
-          let taskConfidence = 1.0
+          // Use properties from extraction (single AI call)
+          const props = extractedTask.properties
+          const context = props?.context ?? 'anywhere'
+          const energy = props?.energy ?? 'medium'
+          const timeEstimate = props?.timeEstimate ?? 15
+          const project: string | undefined = undefined // Project suggestion removed from single call
+          // Properties are extracted in the same call, so confidence is high if present
+          const taskConfidence = props !== undefined ? 0.8 : 0.5
 
-          try {
-            // Get AI suggestions using unified AI layer (via queue)
-            const suggestions = await aiQueue.enqueue(
-              () => suggestTaskProperties(extractedTask.nextAction, []),
-              1 // Normal priority
-            )
-            log.debug('Property suggestions:', suggestions)
-            context = suggestions.context.value
-            energy = suggestions.energy.value
-            timeEstimate = suggestions.timeEstimate.value
-            project = suggestions.project.value ?? undefined
-
-            // Calculate confidence for this task
-            taskConfidence = calculateOverallConfidence(suggestions)
-            log.debug('Task confidence:', taskConfidence)
-          } catch (err) {
-            log.error('Failed to get property suggestions:', err)
-            // Use defaults if suggestion fails, low confidence
-            taskConfidence = 0.5
-          }
+          log.debug('Extracted properties:', { context, energy, timeEstimate })
 
           // Track minimum confidence across all tasks
           overallConfidence = Math.min(overallConfidence, taskConfidence)
@@ -507,7 +490,6 @@ export function useBackgroundAI(): BackgroundAIState {
     aiConfidenceThreshold,
     isAIAvailable,
     extractTasks,
-    suggestTaskProperties,
     processVoiceRecording,
     updateProcessingStatus,
     calculateOverallConfidence,

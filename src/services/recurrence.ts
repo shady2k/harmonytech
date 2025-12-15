@@ -214,6 +214,10 @@ export function getRecurrenceDescription(recurrence: Recurrence | undefined): st
     case 'monthly':
       // Handle complex constraint patterns
       if (anchorDay !== undefined && constraint !== undefined) {
+        const prefix = interval === 1 ? 'Monthly' : `Every ${String(interval)} months`
+        if (constraint === 'end-of-month') {
+          return `${prefix}, ${String(anchorDay)}${getOrdinalSuffix(anchorDay)} to end of month`
+        }
         const constraintText =
           constraint === 'next-weekend'
             ? 'weekend'
@@ -222,7 +226,6 @@ export function getRecurrenceDescription(recurrence: Recurrence | undefined): st
               : constraint === 'next-saturday'
                 ? 'Saturday'
                 : 'Sunday'
-        const prefix = interval === 1 ? 'Monthly' : `Every ${String(interval)} months`
         return `${prefix}, ${constraintText} after the ${String(anchorDay)}${getOrdinalSuffix(anchorDay)}`
       }
       if (dayOfMonth !== undefined) {

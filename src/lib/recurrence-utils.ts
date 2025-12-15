@@ -225,6 +225,15 @@ function applyConstraint(
       return { scheduledStart: result, scheduledEnd: null }
     }
 
+    case 'end-of-month': {
+      // Start from anchor day, end at last day of month
+      result.setHours(0, 0, 0, 0)
+      // Get last day of current month
+      const endDate = new Date(result.getFullYear(), result.getMonth() + 1, 0)
+      endDate.setHours(23, 59, 59, 999)
+      return { scheduledStart: result, scheduledEnd: endDate }
+    }
+
     default:
       return { scheduledStart: result, scheduledEnd: null }
   }
@@ -301,6 +310,9 @@ export function formatRecurrence(recurrence: Recurrence): string {
 
     case 'monthly':
       if (anchorDay !== undefined && constraint !== undefined) {
+        if (constraint === 'end-of-month') {
+          return `Monthly, ${String(anchorDay)}${getOrdinalSuffix(anchorDay)} to end of month`
+        }
         const constraintText =
           constraint === 'next-weekend'
             ? 'weekend'

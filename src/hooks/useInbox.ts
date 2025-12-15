@@ -20,9 +20,10 @@ interface UseInboxReturn {
 }
 
 export function useInbox(): UseInboxReturn {
-  // Reactive query for thoughts with processingStatus 'unprocessed' or 'failed'
+  // Reactive query for thoughts not yet fully processed
+  // Show everything except 'processed' status
   const thoughts = useLiveQuery(
-    () => db.thoughts.where('processingStatus').anyOf(['unprocessed', 'failed']).toArray(),
+    () => db.thoughts.where('processingStatus').notEqual('processed').toArray(),
     []
   )
 

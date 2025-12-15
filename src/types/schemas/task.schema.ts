@@ -61,6 +61,7 @@ export const recurrenceConstraintSchema = z.enum([
   'next-weekday', // First Mon-Fri on or after anchorDay
   'next-saturday', // First Saturday on or after anchorDay
   'next-sunday', // First Sunday on or after anchorDay
+  'end-of-month', // From anchorDay until end of month
 ])
 export type RecurrenceConstraint = z.infer<typeof recurrenceConstraintSchema>
 
@@ -286,6 +287,16 @@ registerAIMeta('nextAction', {
 // ============================================================
 
 /**
+ * Schema for property suggestions returned by AI during extraction
+ */
+export const extractedPropertiesSchema = z.object({
+  context: taskContextSchema,
+  energy: taskEnergySchema,
+  timeEstimate: z.number().min(5).max(480), // 5 min to 8 hours
+})
+export type ExtractedProperties = z.infer<typeof extractedPropertiesSchema>
+
+/**
  * Schema for what AI should extract from text.
  * This is a subset of Task - only fields that can be extracted.
  *
@@ -299,6 +310,7 @@ export const extractedTaskSchema = z.object({
   dateAnchor: dateAnchorSchema.optional(), // Semantic start date reference
   dateAnchorEnd: dateAnchorSchema.optional(), // Semantic end date for ranges
   recurrence: recurrenceSchema.optional(),
+  properties: extractedPropertiesSchema.optional(), // GTD properties suggested by AI
 })
 
 export type ExtractedTask = z.infer<typeof extractedTaskSchema>
