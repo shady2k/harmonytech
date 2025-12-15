@@ -79,8 +79,8 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
 
   const isPaused = isIdle || isTabHidden
 
-  // Track previous task count to detect changes
-  const prevTaskCountRef = useRef<number>(tasks.length)
+  // Track previous incomplete task count to detect changes (including from sync)
+  const prevIncompleteCountRef = useRef<number>(0)
 
   // Get unprocessed and recent thoughts for fallback UI
   const unprocessedThoughts = useMemo(
@@ -186,13 +186,13 @@ export function useAutoRecommendations(): UseAutoRecommendationsReturn {
     [refresh]
   )
 
-  // Mark as stale when task count changes
+  // Mark as stale when incomplete task count changes (e.g., task completed via sync)
   useEffect(() => {
-    if (prevTaskCountRef.current !== tasks.length && lastFetchedAt !== null) {
+    if (prevIncompleteCountRef.current !== incompleteTasks.length && lastFetchedAt !== null) {
       markStale()
     }
-    prevTaskCountRef.current = tasks.length
-  }, [tasks.length, lastFetchedAt, markStale])
+    prevIncompleteCountRef.current = incompleteTasks.length
+  }, [incompleteTasks.length, lastFetchedAt, markStale])
 
   // Auto-fetch on mount or when stale (skip if paused)
   useEffect(() => {
